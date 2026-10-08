@@ -1,0 +1,63 @@
+const vscode = require('vscode');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { renderFigure } = require('./scripts/figure.cjs');
+
+function activate(context) {
+  const root = path.join(context.extensionPath, 'web');
+  async function readCsv(uri) {
+    const stat = await vscode.workspace.fs.stat(uri);
+    if (stat.size > 10_000_000) throw new Error('TableOrbit supports data files up to 10 MB.');
+    return Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
+  }
+  async function chooseCsv() {
+    const files = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { Data: ['csv', 'tsv', 'json', 'jsonl', 'ndjson'] } });
+    if (!files?.length) return null;
+    return { text: await readCsv(files[0]), name: path.basename(files[0].fsPath) };
+  }
+  async function open(initial) {
+    const panel = vscode.window.createWebviewPanel('panelSpace', 'TableOrbit', vscode.ViewColumn.One, {
+      enableScripts: true, localResourceRoots: [vscode.Uri.file(root)], retainContextWhenHidden: true
+    });
+    const nonce = crypto.randomBytes(18).toString('base64');
+    const base = panel.webview.asWebviewUri(vscode.Uri.file(root)).toString() + '/';
+    const boot = JSON.stringify({ demo: fs.readFileSync(path.join(root,'data','grunfeld.csv'),'utf8'), csv: initial?.text, name: initial?.name }).replace(/</g,'\\u003c');
+    let html = fs.readFileSync(path.join(root,'index.html'),'utf8');
+    html = html.replace('<head>', `<head><base href="${base}"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${panel.webview.cspSource} data:; style-src ${panel.webview.cspSource} 'unsafe-inline'; script-src ${panel.webview.cspSource} 'nonce-${nonce}'; connect-src ${panel.webview.cspSource};">`);
+    html = html.replace('<script type="module"', `<script nonce="${nonce}">window.__PANEL_BOOT__=${boot};</script><script nonce="${nonce}" type="module"`);
+    panel.webview.html = html;
+    panel.webview.onDidReceiveMessage(async message => {
+      try {
+        if(message?.type === 'openCsv') { const csv=await chooseCsv(); if(csv) panel.webview.postMessage({type:'csv',...csv}); }
+        if(message?.type === 'renderFigure') {
+          try {
+            const python = vscode.workspace.getConfiguration('panelSpace').get('pythonPath') || process.env.PANEL_SPACE_PYTHON || 'python';
+            const result = await renderFigure(message.spec, python);
+            panel.webview.postMessage({type:'figureResult',id:message.id,result});
+          } catch(error) { panel.webview.postMessage({type:'figureResult',id:message.id,error:error.message}); }
+        }
+        if(message?.type === 'saveFigure' && ['pdf','png','svg','json'].includes(message.format)) {
+          const encoded = message.format === 'json' ? message.text : message.base64;
+          if(typeof encoded !== 'string' || encoded.length > 12_000_000) throw new Error('Invalid figure export.');
+          const name=String(message.name??'figure').replace(/[^a-zA-Z0-9_.-]/g,'_');
+          const uri=await vscode.window.showSaveDialog({defaultUri:vscode.Uri.file(path.join(context.extensionPath,name)),filters:{Figure:[message.format]}});
+          if(uri) await vscode.workspace.fs.writeFile(uri,Buffer.from(encoded,message.format === 'json' ? 'utf8' : 'base64'));
+        }
+        if(message?.type === 'export' && typeof message.text === 'string' && message.text.length <= 20_000_000) {
+          const name=String(message.name??'panel-space.csv').replace(/[^a-zA-Z0-9_.-]/g,'_');
+          const uri=await vscode.window.showSaveDialog({defaultUri:vscode.Uri.file(path.join(context.extensionPath,name)),filters:{CSV:['csv']}});
+          if(uri){await vscode.workspace.fs.writeFile(uri,Buffer.from(message.text,'utf8'));panel.webview.postMessage({type:'exported'});}
+        }
+      } catch(error){vscode.window.showErrorMessage(error.message);}
+    },undefined,context.subscriptions);
+  }
+  context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openDemo',()=>open()));
+  context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openCsv',async uri=>{
+    try {const csv=uri?{text:await readCsv(uri),name:path.basename(uri.fsPath)}:await chooseCsv();if(csv)await open(csv);}
+    catch(error){vscode.window.showErrorMessage(error.message);}
+  }));
+  // Development launches are explicitly requested; installed extensions open by command.
+  if(context.extensionMode === vscode.ExtensionMode.Development) open();
+}
+module.exports = { activate };

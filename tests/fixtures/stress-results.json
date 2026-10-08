@@ -1,0 +1,41 @@
+{
+  "runtime": "v24.15.0",
+  "results": [
+    {
+      "dataset": "diamonds",
+      "records": 53940,
+      "entities": 53940,
+      "periods": 1,
+      "variables": 7,
+      "missingCells": 0,
+      "absentRecords": 0,
+      "importMs": 708,
+      "summaryMs": 277,
+      "heapMB": 137
+    },
+    {
+      "dataset": "nlswork",
+      "records": 28534,
+      "entities": 4711,
+      "periods": 15,
+      "variables": 19,
+      "missingCells": 16747,
+      "absentRecords": 42131,
+      "importMs": 674,
+      "summaryMs": 256,
+      "heapMB": 189
+    },
+    {
+      "dataset": "co2",
+      "records": 2284,
+      "entities": 1,
+      "periods": 2284,
+      "variables": 1,
+      "missingCells": 59,
+      "absentRecords": 0,
+      "importMs": 27,
+      "summaryMs": 1,
+      "heapMB": 197
+    }
+  ]
+}

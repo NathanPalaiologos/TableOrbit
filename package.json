@@ -1,0 +1,24 @@
+{
+  "name": "tableorbit",
+  "displayName": "TableOrbit",
+  "description": "Read panel data through rotating cross-section and time-series tables.",
+  "repository": { "type": "git", "url": "https://github.com/NathanPalaiologos/TableOrbit.git" },
+  "homepage": "https://github.com/NathanPalaiologos/TableOrbit#readme",
+  "bugs": { "url": "https://github.com/NathanPalaiologos/TableOrbit/issues" },
+  "version": "0.1.0",
+  "publisher": "tableorbit-local",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Visualization"],
+  "main": "./extension.cjs",
+  "activationEvents": ["onStartupFinished", "onCommand:panelSpace.openDemo", "onCommand:panelSpace.openCsv"],
+  "contributes": {
+    "configuration": { "title":"TableOrbit", "properties": {"panelSpace.pythonPath":{"type":"string","default":"","description":"Python executable with Matplotlib and Seaborn for local figure rendering. Empty uses python on PATH."}} },
+    "commands": [
+      { "command": "panelSpace.openDemo", "title": "TableOrbit: Open Grunfeld Demo" },
+      { "command": "panelSpace.openCsv", "title": "TableOrbit: Explore Data" }
+    ],
+    "menus": { "explorer/context": [{ "command": "panelSpace.openCsv", "when": "resourceExtname =~ /\\.(csv|tsv|json|jsonl|ndjson)$/", "group": "navigation" }] }
+  },
+  "scripts": { "start": "node scripts/serve.cjs", "test": "node --test tests/data.test.mjs tests/reader.test.mjs tests/analysis.test.mjs tests/import.test.mjs tests/summary.test.mjs tests/interaction.test.mjs", "stress":"node tests/stress.mjs" },
+  "license": "MIT"
+}

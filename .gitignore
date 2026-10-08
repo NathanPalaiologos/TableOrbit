@@ -1,0 +1,12 @@
+.demo-server.log
+.demo-server-error.log
+*.vsix
+__pycache__/
+node_modules/
+.venv/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db

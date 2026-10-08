@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TableOrbit — Data reader</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand"><strong>TableOrbit</strong><button id="open-guide" data-i18n="guide" aria-haspopup="dialog">Quick guide</button></div><span id="filename" hidden></span>
+    <label class="dataset-control"><span data-i18n="dataset">Dataset</span><select id="example" data-i18n-aria="dataset"><option value="grunfeld">Grunfeld</option><option value="gapminder">Gapminder</option><option value="cross" data-i18n="exampleCross">Gapminder (2007 snapshot)</option><option value="wide" data-i18n="exampleWide">Life expectancy (3 countries)</option><option value="diamonds" data-i18n="exampleDiamonds">Diamonds (53,940 rows)</option><option value="nlswork" data-i18n="exampleNls">NLS work (28,534 rows)</option><option value="co2" data-i18n="exampleCo2">CO₂ (weekly series)</option></select></label><span class="spacer"></span>
+    <button id="open-csv" data-i18n="openFile">Open file…</button><button id="open-paste" data-i18n="paste">Paste…</button>
+    <button id="export-button" data-i18n="exportFace">Export table</button><button id="open-figure" data-i18n="figure">Figure…</button>
+    <select id="language" data-i18n-aria="language" aria-label="Language"><option value="en">English</option><option value="zh">中文</option></select>
+    <input id="file-input" type="file" accept=".csv,.tsv,.json,.jsonl,.ndjson" hidden>
+  </header>
+  <nav class="navigation" data-i18n-aria="navigation">
+    <div class="face-controls"><button id="rotate-left" data-i18n-aria="left">←</button><strong id="view-name"></strong><button id="rotate-right" data-i18n-aria="right">→</button></div>
+    <div class="layer-controls"><label id="layer-label" for="layer-select"></label><button id="previous-layer" data-i18n-aria="previous">↑</button><select id="layer-select" data-i18n-aria="layer"></select><button id="next-layer" data-i18n-aria="next">↓</button><span id="layer-count"></span></div>
+    <label id="summary-scope-control" hidden><span data-i18n="summaryScope">Statistics over</span> <select id="summary-scope" data-i18n-aria="summaryScope"><option value="all" data-i18n="allPeriods">All periods</option><option value="current" data-i18n="currentPeriod">Current period</option></select></label>
+  </nav>
+  <div class="analysis-toolbar">
+    <button id="open-scope" data-i18n="scope">Entities…</button><span id="scope-count"></span>
+    <button id="open-variables" data-i18n="chooseVariables">Variables…</button><span id="variable-count"></span>
+    <button id="toggle-summary" data-i18n="summary" aria-pressed="false">Summary statistics</button>
+    <label id="aggregation-control"><span data-i18n="aggregation">Across entities</span> <select id="aggregation" data-i18n-aria="aggregation"></select></label>
+    <span id="aggregation-note"></span>
+  </div>
+  <main id="reader" tabindex="0" data-i18n-aria="reader">
+    <div id="cube"><section class="face" data-face="0"></section><section class="face" data-face="1"></section><section class="face" data-face="2"></section><section class="face" data-face="3"></section></div>
+    <div id="layer-motion" aria-hidden="true" hidden></div>
+    <section id="summary-table" hidden></section>
+  </main>
+  <div id="table-pages"><span data-i18n="rowCount">Rows</span><button id="rows-prev" data-i18n-aria="previousRows">‹</button><span id="rows-range"></span><button id="rows-next" data-i18n-aria="nextRows">›</button><span data-i18n="columns">Columns</span><button id="cols-prev" data-i18n-aria="previousColumns">‹</button><span id="cols-range"></span><button id="cols-next" data-i18n-aria="nextColumns">›</button></div>
+  <p id="summary-note" hidden data-i18n="summaryNote">Raw observations in the selected scope, not pre-aggregated values. SD: n−1. Quartiles: linear interpolation. Missing and absent records are counted separately. Pagination does not restrict statistics.</p>
+  <div class="selection-bar"><span id="coordinate"></span><output id="cell-value"></output></div>
+  <footer><span id="dataset-meta" class="text-fields"></span><span id="key-hint" class="text-fields"></span></footer>
+  <div id="message" role="status" hidden></div>
+  <dialog id="guide-dialog" aria-labelledby="guide-title">
+    <div class="figure-heading"><h2 id="guide-title" data-i18n="guide">Quick guide</h2><button id="close-guide" data-i18n="close" autofocus>Close</button></div>
+    <section><h3 data-i18n="guideReadTitle">Read the table</h3><p data-i18n="guideRead"></p>
+      <dl class="guide-keys"><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd data-i18n="guideLayers"></dd><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd data-i18n="guideRotate"></dd><dt><kbd>Shift</kbd> + <span data-i18n="arrowKeys">arrows</span></dt><dd data-i18n="guideCells"></dd></dl>
+      <p data-i18n="guideFocus"></p><p data-i18n="guideCross"></p>
+    </section>
+    <section><h3 data-i18n="guideChooseTitle">Choose what to read</h3><p data-i18n="guideChoose"></p></section>
+    <section><h3 data-i18n="guideAnalyzeTitle">Summarize and plot</h3><p data-i18n="guideSummary"></p><p data-i18n="guidePlot"></p></section>
+    <details><summary data-i18n="guideImportTitle">Open your own data</summary><p data-i18n="guideImport"></p><p data-i18n="guideSeries"></p></details>
+  </dialog>
+  <dialog id="open-dialog"><form id="paste-form">
+    <h2 data-i18n="paste">Paste…</h2>
+    <p data-i18n="pasteHint">Or paste a small table below.</p>
+    <label><span data-i18n="format">Format</span><select id="paste-format"><option>csv</option><option>tsv</option><option>json</option><option>jsonl</option></select></label>
+    <textarea id="paste-data" data-i18n-aria="pasteData" required spellcheck="false"></textarea>
+    <p id="paste-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-open" data-i18n="cancel">Cancel</button><button data-i18n="nextStep">Next</button></div>
+  </form></dialog>
+  <dialog id="mapping-dialog"><form id="mapping-form">
+    <h2 data-i18n="fields">Data fields</h2><p id="import-info"></p>
+    <label><span data-i18n="structure">Structure</span><select id="import-mode"><option value="panel" data-i18n="panelMode">Panel (long)</option><option value="cross-section" data-i18n="cross">Cross-section</option><option value="series" data-i18n="seriesMode">One time series</option><option value="wide" data-i18n="wideMode">Time series → panel</option></select></label>
+    <label><span data-i18n="entityColumn">Entity column</span><select id="entity-column" required></select></label>
+    <label><span data-i18n="timeColumn">Time column</span><select id="time-column" required></select></label>
+    <label><span data-i18n="timeFormat">Time format</span><select id="time-format"><option value="number" data-i18n="numericTime">Numeric / year</option><option value="date">YYYY-MM-DD</option><option value="month">YYYY-MM</option><option value="quarter">YYYY-Q1</option><option value="timestamp" data-i18n="timestampFormat">ISO timestamp (Z / ±HH:MM)</option><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option></select></label>
+    <label hidden><span data-i18n="entityName">Entity name</span><input id="entity-name" maxlength="100"></label>
+    <label hidden><span data-i18n="measureName">Common measure / unit</span><input id="measure-name" maxlength="100" data-i18n-placeholder="measureExample" placeholder="e.g. temperature (°C)"></label>
+    <p id="structure-note"></p><p id="time-preview"></p>
+    <fieldset><legend id="variable-legend" data-i18n="numeric">Numeric variables</legend><div id="import-variables"></div></fieldset>
+    <label id="append-control" hidden><span><input type="checkbox" id="append-series"> <span data-i18n="appendSeries">Add as new entities to the current panel</span></span></label>
+    <p id="append-note" hidden data-i18n="appendNote">Use identical measure names, units and time format. Dates are aligned by their union, with no filling or resampling.</p>
+    <p id="import-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-import" data-i18n="cancel">Cancel</button><button type="submit" data-i18n="open">Open</button></div>
+  </form></dialog>
+  <dialog id="scope-dialog"><form id="scope-form">
+    <h2 data-i18n="entities">Entities</h2><div class="dialog-actions"><button type="button" id="scope-all" data-i18n="all">All</button><button type="button" id="scope-clear" data-i18n="clear">Clear</button></div>
+    <input id="scope-search" type="search" data-i18n-aria="search" data-i18n-placeholder="search"><p id="scope-list-note"></p>
+    <div id="scope-entities"></div><p id="scope-error" role="alert"></p>
+    <div class="dialog-actions"><button type="button" id="scope-cancel" data-i18n="cancel">Cancel</button><button type="submit" data-i18n="apply">Apply</button></div>
+  </form></dialog>
+  <dialog id="variables-dialog"><form id="variables-form">
+    <h2 data-i18n="chooseVariables">Variables…</h2><input id="variables-search" type="search" data-i18n-aria="search" data-i18n-placeholder="search">
+    <div class="dialog-actions"><button type="button" id="variables-all" data-i18n="all">All</button><button type="button" id="variables-clear" data-i18n="clear">Clear</button></div>
+    <div id="variable-list"></div><p id="variables-error" role="alert"></p>
+    <div class="dialog-actions"><button type="button" id="variables-cancel" data-i18n="cancel">Cancel</button><button data-i18n="apply">Apply</button></div>
+  </form></dialog>
+  <dialog id="figure-dialog">
+    <div class="figure-heading"><h2 data-i18n="figureTitle">Figure</h2><button id="close-figure" data-i18n="close">Close</button></div>
+    <form id="figure-form">
+      <div class="figure-controls">
+        <label><span data-i18n="kind">Plot</span><select id="plot-type"><option value="line" data-i18n="line">Time series</option><option value="bar" data-i18n="bar">Bar chart</option><option value="scatter" data-i18n="scatter">Scatter</option><option value="histogram" data-i18n="histogram">Histogram</option></select></label>
+        <label><span data-i18n="yVariable">Y / measure</span><select id="plot-y-variable"></select></label>
+        <label id="x-variable-control" hidden><span data-i18n="xVariable">X variable</span><select id="plot-x-variable"></select></label>
+        <button id="swap-axes" type="button" hidden data-i18n="swapAxes">Swap X/Y</button>
+      </div>
+      <div class="figure-controls">
+        <label><span data-i18n="seriesScope">Series</span><select id="plot-scope"><option value="selected" data-i18n="oneEntity">One entity</option><option value="included" data-i18n="included">Included entities</option><option value="custom" data-i18n="customEntities">Choose entities…</option></select></label>
+        <label id="figure-entity-control"><span data-i18n="entity">Entity</span><input id="plot-entity" list="plot-entity-options" autocomplete="off" spellcheck="false"><datalist id="plot-entity-options"></datalist></label>
+        <label id="figure-period-control" hidden><span id="plot-time-name" data-i18n="currentPeriod">Current period</span><select id="plot-time" data-i18n-aria="currentPeriod"></select></label>
+      </div>
+      <fieldset id="figure-entities-control" hidden><legend data-i18n="customEntities">Choose entities…</legend><input id="figure-entity-search" type="search" data-i18n-aria="search" data-i18n-placeholder="search"><div id="figure-entity-list"></div><p id="figure-entity-count"></p></fieldset>
+      <details id="figure-style"><summary data-i18n="figureStyle">Style and size</summary><div class="figure-controls">
+        <label><span data-i18n="template">Template</span><select id="plot-template"><option value="nature">Nature</option><option value="seaborn" data-i18n="seabornTemplate">Seaborn paper</option><option value="icml" data-i18n="csTemplate">ICML</option><option value="aer" data-i18n="econTemplate">AER</option></select></label>
+        <label><span data-i18n="size">Width</span><select id="plot-size"><option value="single" data-i18n="single">Single column</option><option value="double" data-i18n="double">Double column</option></select></label>
+      </div></details>
+      <div class="figure-controls"><label class="axis-input"><span data-i18n="xLabel">X label / unit</span><input id="plot-x-label" maxlength="160" required></label><label class="axis-input"><span data-i18n="yLabel">Y label / unit</span><input id="plot-y-label" maxlength="160" required></label><button id="draw-figure" type="submit" data-i18n="draw">Draw</button></div>
+    </form>
+    <p id="figure-context"></p><div id="figure-preview"><span data-i18n="figureEmpty">Choose a plot and draw.</span></div>
+    <p id="figure-status" role="status"></p>
+    <div class="figure-downloads"><button data-format="pdf" disabled>PDF</button><button data-format="svg" disabled>SVG</button><button data-format="png" disabled data-i18n="downloadPNG">PNG (600 dpi)</button><button data-format="json" disabled data-i18n="recipe">Data + settings</button></div>
+    <details class="template-details"><summary data-i18n="template">Template</summary><p id="template-spec"></p><p data-i18n="templateNote"></p><a id="template-source" target="_blank" rel="noreferrer">Source</a></details>
+  </dialog>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>
