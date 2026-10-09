@@ -27,7 +27,7 @@ Selected coordinates remain entity/time/variable coordinates. Filtering variable
 
 ## Plot workflow
 
-1. Open Figure. The reading variable, entity and period seed the controls.
+1. Choose Create figure in the top toolbar. The reading variable, entity and period seed the controls.
 2. Choose **Y / measure** directly. All numeric source variables are available, including ones hidden from the reading table. Scatter additionally exposes **X variable** and **Swap X/Y**.
 3. Choose one searchable entity, all included entities, or a searchable custom checklist. Custom selection retains choices across searches. The checklist shows at most 100 matches at a time. Aggregated figures retain the reader's explicitly included population.
 4. Raw bar/scatter plots expose a period selector. Lines/histograms keep their existing all-period definition.
@@ -56,3 +56,13 @@ Plot choices are local to the dialog. They never change the reading coordinate, 
 15 focused interaction, navigation, analysis and summary checks passed in this iteration. They cover control/IME/modifier priority, repeat routing, filtered cell coordinates, boundaries, and plot-variable independence. Browser checks cover consecutive layer-dropdown arrows retaining focus; dataset/aggregation dropdown focus; Tab leaving the table; Shift movement in both faces; row-page crossing; direct Y and X/Y swapping; custom entities; actual figure rendering; original values in the downloaded recipe; modal focus return and unchanged reader coordinates. Space toggles a custom-entity checkbox without removing its focus, and Tab reaches the next checkbox. A right/left/down sequence settles on the correct cross-section and period without leaving duplicate faces. No browser console errors were observed in the final check.
 
 Physical held-key behavior across every OS/browser and assistive-technology combination remains unverified. IME and OS-repeat routing are tested at the event-policy level. Comfort remains a user judgment; these checks establish deterministic behavior, not universal usability.
+
+## Presentation curation and figure visibility
+
+Subsequent multi-table update: Combine tables joins the secondary import actions, with Create figure retaining the primary accent. Four actions share a row below 1050 px and wrap to two columns below 540 px. The local composer separates operation, explicit key pairs, cardinality and added columns, then shows an audit before handing the result to axis mapping. CLI-managed database access is a selected design direction, not a completed integration. See [MULTITABLE_CONNECTIONS.md](MULTITABLE_CONNECTIONS.md).
+
+The presentation menu contains three complementary panels: Grunfeld for a compact balanced firm panel, Gapminder for country comparisons over time, and NLS work for a larger unbalanced person panel. Grunfeld remains the initial dataset. Cross-section, wide-import and single-series fixtures remain at their existing paths for tests and manual import. No source data or analytical sample changed.
+
+Create figure is the sole filled primary button in the main view, using the existing blue accent. Draw repeats that hierarchy inside the figure dialog. Export table moves to the table tool row, alongside selections and summary statistics. Entity and variable counts stay grouped with their buttons when controls wrap. Below 900 px, import and figure actions occupy their own row, while the dataset and language controls stay above. Both languages share this structure. Plot calculations, scope, keyboard routing and the existing summary-mode restriction are unchanged.
+
+The visual scan reports only the Quick guide hover underline, retained as intentional feedback. The update passed 17 focused import, reader and analysis checks. Browser verification covers the three curated datasets, a rendered Gapminder time-series figure with enabled exports, Chinese figure controls and focus returning to the trigger after closing. Toolbar geometry was checked at 480, 746 and 1200 px, with no horizontal toolbar overflow. The viewport was restored after checking. No full test suite or new package installation was needed. Native VS Code verification remains outstanding.

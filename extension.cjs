@@ -3,33 +3,41 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { renderFigure } = require('./scripts/figure.cjs');
+const { createScanner } = require('./scripts/scan.cjs');
 
 function activate(context) {
   const root = path.join(context.extensionPath, 'web');
   async function readCsv(uri) {
+    if(path.extname(uri.fsPath).toLowerCase()==='.parquet') return {parquet:uri.fsPath};
     const stat = await vscode.workspace.fs.stat(uri);
     if (stat.size > 10_000_000) throw new Error('TableOrbit supports data files up to 10 MB.');
-    return Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
+    return {text:Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8'),name:path.basename(uri.fsPath)};
   }
   async function chooseCsv() {
-    const files = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { Data: ['csv', 'tsv', 'json', 'jsonl', 'ndjson'] } });
+    const files = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { Data: ['parquet', 'csv', 'tsv', 'json', 'jsonl', 'ndjson'] } });
     if (!files?.length) return null;
-    return { text: await readCsv(files[0]), name: path.basename(files[0].fsPath) };
+    return readCsv(files[0]);
   }
   async function open(initial) {
+    const scanner=createScanner(vscode.workspace.getConfiguration('panelSpace').get('pythonPath') || process.env.PANEL_SPACE_PYTHON || 'python');
     const panel = vscode.window.createWebviewPanel('panelSpace', 'TableOrbit', vscode.ViewColumn.One, {
       enableScripts: true, localResourceRoots: [vscode.Uri.file(root)], retainContextWhenHidden: true
     });
     const nonce = crypto.randomBytes(18).toString('base64');
     const base = panel.webview.asWebviewUri(vscode.Uri.file(root)).toString() + '/';
-    const boot = JSON.stringify({ demo: fs.readFileSync(path.join(root,'data','grunfeld.csv'),'utf8'), csv: initial?.text, name: initial?.name }).replace(/</g,'\\u003c');
+    panel.onDidDispose(()=>scanner.close());
+    const boot = JSON.stringify({ demo: fs.readFileSync(path.join(root,'data','grunfeld.csv'),'utf8'), csv: initial?.text, name: initial?.name,parquet:initial?.parquet }).replace(/</g,'\\u003c');
     let html = fs.readFileSync(path.join(root,'index.html'),'utf8');
     html = html.replace('<head>', `<head><base href="${base}"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${panel.webview.cspSource} data:; style-src ${panel.webview.cspSource} 'unsafe-inline'; script-src ${panel.webview.cspSource} 'nonce-${nonce}'; connect-src ${panel.webview.cspSource};">`);
     html = html.replace('<script type="module"', `<script nonce="${nonce}">window.__PANEL_BOOT__=${boot};</script><script nonce="${nonce}" type="module"`);
     panel.webview.html = html;
     panel.webview.onDidReceiveMessage(async message => {
       try {
-        if(message?.type === 'openCsv') { const csv=await chooseCsv(); if(csv) panel.webview.postMessage({type:'csv',...csv}); }
+        if(message?.type === 'openCsv') { const csv=await chooseCsv(); if(csv) panel.webview.postMessage(csv.parquet ? {type:'parquet',path:csv.parquet} : {type:'csv',...csv}); }
+        if(message?.type === 'scan') {
+          try {const result=await scanner.request(message.spec);panel.webview.postMessage({type:'scanResult',id:message.id,result});}
+          catch(error){panel.webview.postMessage({type:'scanResult',id:message.id,error:error.message});}
+        }
         if(message?.type === 'renderFigure') {
           try {
             const python = vscode.workspace.getConfiguration('panelSpace').get('pythonPath') || process.env.PANEL_SPACE_PYTHON || 'python';
@@ -54,7 +62,7 @@ function activate(context) {
   }
   context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openDemo',()=>open()));
   context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openCsv',async uri=>{
-    try {const csv=uri?{text:await readCsv(uri),name:path.basename(uri.fsPath)}:await chooseCsv();if(csv)await open(csv);}
+    try {const csv=uri?await readCsv(uri):await chooseCsv();if(csv)await open(csv);}
     catch(error){vscode.window.showErrorMessage(error.message);}
   }));
   // Development launches are explicitly requested; installed extensions open by command.

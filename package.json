@@ -12,13 +12,13 @@
   "main": "./extension.cjs",
   "activationEvents": ["onStartupFinished", "onCommand:panelSpace.openDemo", "onCommand:panelSpace.openCsv"],
   "contributes": {
-    "configuration": { "title":"TableOrbit", "properties": {"panelSpace.pythonPath":{"type":"string","default":"","description":"Python executable with Matplotlib and Seaborn for local figure rendering. Empty uses python on PATH."}} },
+    "configuration": { "title":"TableOrbit", "properties": {"panelSpace.pythonPath":{"type":"string","default":"","description":"Python executable with DuckDB for Parquet scans and Matplotlib/Seaborn for figures. Empty uses python on PATH."}} },
     "commands": [
       { "command": "panelSpace.openDemo", "title": "TableOrbit: Open Grunfeld Demo" },
       { "command": "panelSpace.openCsv", "title": "TableOrbit: Explore Data" }
     ],
-    "menus": { "explorer/context": [{ "command": "panelSpace.openCsv", "when": "resourceExtname =~ /\\.(csv|tsv|json|jsonl|ndjson)$/", "group": "navigation" }] }
+    "menus": { "explorer/context": [{ "command": "panelSpace.openCsv", "when": "resourceExtname =~ /\\.(parquet|csv|tsv|json|jsonl|ndjson)$/", "group": "navigation" }] }
   },
-  "scripts": { "start": "node scripts/serve.cjs", "test": "node --test tests/data.test.mjs tests/reader.test.mjs tests/analysis.test.mjs tests/import.test.mjs tests/summary.test.mjs tests/interaction.test.mjs", "stress":"node tests/stress.mjs" },
+  "scripts": { "start": "node scripts/serve.cjs", "doctor":"node scripts/tableorbit.mjs doctor", "test": "node --test tests/data.test.mjs tests/reader.test.mjs tests/analysis.test.mjs tests/import.test.mjs tests/summary.test.mjs tests/interaction.test.mjs tests/detect.test.mjs tests/compose.test.mjs", "stress":"node tests/stress.mjs" },
   "license": "MIT"
 }

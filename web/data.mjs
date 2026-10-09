@@ -39,7 +39,30 @@ export function parseCSV(text, delimiter = ',') {
 }
 
 const missing = value => /^(?:|na|nan|null)$/i.test(String(value).trim());
+const unsafeInteger = value => Number.isInteger(value) && !Number.isSafeInteger(value);
 export const panelKey = (entity, time) => JSON.stringify([entity, time]);
+
+// Representation is not measurement scale: 0/1 and small integer codes may be categories.
+export function columnTypes(parsed) {
+  return parsed.headers.map(name => {
+    const values = parsed.rows.map(row => String(row[name] ?? '').trim()).filter(value => !missing(value));
+    let type = 'typeText';
+    if (!values.length) type = 'typeEmpty';
+    else if (values.every(value => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value))) type = 'typeUuid';
+    else if (values.every(value => /^(true|false)$/i.test(value))) type = 'typeBoolText';
+    else if (values.every(value => Number.isFinite(Number(value)))) {
+      if (values.some(value => unsafeInteger(Number(value)))) type = 'typeLargeInteger';
+      else if (values.some(value => /^[+-]?0\d+$/.test(value))) type = 'typeZeroCode';
+      else if (values.every(value => [0,1].includes(Number(value)))) type = 'typeBinary';
+      else if (values.some(value => /e[+-]?\d+$/i.test(value))) type = 'typeScientific';
+      else if (values.every(value => Number.isInteger(Number(value)))) type = 'typeInteger';
+      else type = 'typeDecimal';
+    } else if (values.every(value => /^[+-]?[\d.,]+\s*%$/.test(value))) type = 'typePercent';
+    else if (values.some(value => /[$€£¥]|\d[, ]\d|^\([\d.,]+\)$/.test(value))) type = 'typeFormatted';
+    else if (values.some(value => Number.isFinite(Number(value)))) type = 'typeMixed';
+    return {name,type,missing:parsed.rows.length-values.length};
+  });
+}
 
 export function buildPanel(parsed, entityColumn, timeColumn, variables, {timeFormat = 'number', kind = 'panel'} = {}) {
   const cross = kind === 'cross-section';
@@ -62,6 +85,7 @@ export function buildPanel(parsed, entityColumn, timeColumn, variables, {timeFor
       const raw = source[variable];
       const value = missing(raw) ? null : Number(raw);
       if (value !== null && !Number.isFinite(value)) throw new Error(`“${variable}”包含非数值：${raw}`);
+      if (value !== null && unsafeInteger(value)) throw new Error(`Unsafe integer magnitude in variable: ${variable}. Use it as a text key or deselect it.`);
       if (value === null) missingValues++;
       values[variable] = value;
     }

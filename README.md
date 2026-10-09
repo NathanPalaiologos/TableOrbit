@@ -8,7 +8,9 @@ A local panel-data reader. The browser preview and VS Code webview share the sam
 
 `Quick guide`, below the project name at the top left, explains navigation, selection, statistics, figures and imports. It follows the selected language. Close it with its button or Esc to return to the guide trigger without changing the reading position.
 
-`Dataset` switches immediately between bundled examples and recently imported datasets, without repeating field mapping for examples. `Open file…` goes directly to the file picker; `Paste…` opens the text form. Up to five loaded datasets are retained in memory. Switching datasets resets the reading selection; switching language preserves it. Both languages use the same components and layout.
+`Dataset` switches immediately between three panel examples and recently imported datasets, without repeating field mapping for examples. Grunfeld is the compact default, Gapminder shows country trends, and NLS work shows a larger unbalanced panel. `Open file…` goes directly to the file picker and `Paste…` opens the text form. Up to five loaded datasets are retained in memory. Switching datasets resets the reading selection, while switching language preserves it. Both languages use the same components and layout.
+
+`Create figure` is the primary action in the top toolbar. `Export table` sits alongside variable selection and summary statistics. Import controls remain secondary, with the same order and grouping in English and Chinese.
 
 ## Read
 
@@ -39,7 +41,7 @@ The default scope is included entities across all observed periods. `Current per
 
 ## Figures
 
-Open `Figure…` and choose `Y / measure` directly from all numeric variables, including hidden table columns. Scatter adds X and `Swap X/Y`. Choose one searchable entity, included entities, or a searchable custom checklist; raw bars/scatter also expose the period. These choices do not change the reading selection or included population. Edit labels and units before drawing; template/size controls are under a collapsible section. Figures do not replace the reader. Rendering runs locally in an existing Python environment with Matplotlib and Seaborn; the browser does not load a plotting framework.
+Choose `Create figure` and choose `Y / measure` directly from all numeric variables, including hidden table columns. Scatter adds X and `Swap X/Y`. Choose one searchable entity, included entities, or a searchable custom checklist; raw bars/scatter also expose the period. These choices do not change the reading selection or included population. Edit labels and units before drawing; template/size controls are under a collapsible section. Figures do not replace the reader. Rendering runs locally in an existing Python environment with Matplotlib and Seaborn; the browser does not load a plotting framework.
 
 | Plot | Raw values | Aggregated values |
 |---|---|---|
@@ -69,19 +71,19 @@ Sources checked 2026-10-08. Plot height grows with bar count/legend size, capped
 
 ## Run
 
-The reader needs Node.js 20+; no package install/build step. Figures additionally require an existing Python with Matplotlib and Seaborn. No packages were installed for this iteration.
+The reader needs Node.js 20+; no package install/build step. Figures require an existing Python with Matplotlib and Seaborn. Parquet scans require DuckDB in that Python environment. No packages were installed for this iteration.
 
 ```bash
 node scripts/serve.cjs
 ```
 
-Open http://127.0.0.1:4317. The server binds to loopback, serves bundled assets, and sends figure JSON to a local Python subprocess only. CSV contents are not sent to a cloud service. To choose a Python interpreter:
+Open http://127.0.0.1:4317. The server binds to loopback, serves bundled assets, and runs figures and Parquet queries in local Python subprocesses. CSV contents are not sent to a cloud service. To choose a Python interpreter:
 
 ```bash
 PANEL_SPACE_PYTHON='/path/to/python' node scripts/serve.cjs
 ```
 
-Replace the path with your existing Python interpreter that has the required libraries. The browser reader still works without Python; only figure rendering needs it. The renderer accepts bounded JSON, runs a fixed script without a shell and handles one figure at a time.
+Replace the path with your existing Python interpreter that has the required libraries. The browser reader still works without Python; figure rendering and Parquet scans need it. The renderer accepts bounded JSON, runs a fixed script without a shell and handles one figure at a time.
 
 VS Code development host:
 
@@ -93,25 +95,37 @@ Set `panelSpace.pythonPath` in VS Code when Python is not on PATH. Commands: `Ta
 
 The internal `panelSpace` command/configuration identifiers and `PANEL_SPACE_PYTHON` environment variable retain their original spelling for compatibility. The working project name is TableOrbit.
 
+## Parquet on disk
+
+`Scan Parquet` opens a local path through DuckDB, then pages 100 rows with selected columns and typed filters. The file is not uploaded or fully loaded into browser memory. `Open selection as panel` explicitly extracts the complete filtered selection within the existing panel limits. Whole-file panel analysis is not yet lazy. See [LAZY_FILES.md](LAZY_FILES.md) for the CLI, data flow and boundaries.
+
+The acceptance target is at least 1 GB on disk. Only a 4,000-row synthetic fixture has been checked for this path; the large-file benchmark was deferred at the user request.
+
 ## Data contract and limits
 
+`Combine tables` joins two local files before axis mapping. Choose left or inner join, key-column pairs, a one-to-one or many-to-one relationship, and the columns to add. Preview reports matched/unmatched rows and the resulting sample size. Append stacks files with the same column names. No duplicate resolution or automatic time conversion occurs. The final panel importer checks entity/time uniqueness again. See [MULTITABLE_CONNECTIONS.md](MULTITABLE_CONNECTIONS.md) for the implemented prototype, validation and the proposed CLI-managed database integration.
+
+`node scripts/tableorbit.mjs doctor` checks local connector prerequisites without reading credentials or connecting to a database. Remote connection commands and database table browsing are not implemented yet.
+
 - `Open file…` and `Paste…` accept CSV, TSV, a JSON array of flat records, or JSONL/NDJSON records. JSON null/omitted fields are missing; nested values and booleans are rejected. UTF-8 text only.
-- Import explicitly selects a structure: long panel (entity + time), cross-section (unique entity, no time), one time series (time + explicit entity name), or wide time series (time + one column per entity, one named common measure/unit). Duplicate keys are rejected; rotation never aggregates implicitly.
+- Import suggests axes from recognized column names, full-column formats and unique keys across all records. A single valid interpretation preselects the structure and fields. Ambiguous dates, competing keys and unsupported encodings remain manual choices. Review the fields and click Open. Supported structures are long panel, cross-section, one time series and wide time series. Duplicate keys are rejected. See [IMPORT_DETECTION.md](IMPORT_DETECTION.md) for rules, types and limitations.
 - A cross-section without a unique identifier can explicitly use `Row number (one record per row)`. This identifies source records in order; it does not infer real-world identity or deduplicate equal-valued rows.
 - Pure cross-sections hide temporal navigation and disable rotation/time-series plots. They retain aggregation, bar/scatter/histogram plots and table exports. Internally a singleton index is used; no time variable is introduced into the public table, figure metadata or export.
 - Wide-series import reshapes selected columns into entity/time records. For example `year,Canada,China` becomes two entities with one explicitly named measure. Do not use this layout when the columns are different variables or units.
 - To combine separate files, open the first as `One time series`; open the next with a different entity name and check `Add as new entities to the current panel`. Measure names and time formats must match; users must verify common units. Dates align by their union with no interpolation, resampling or duplicate resolution. Overlapping entity names are rejected. The first panel remains unchanged if validation fails.
 - Blank, NA, NaN and null display as Missing; absent entity/time rows display as No record; zero stays zero. Chinese equivalents are available.
-- Time format is explicit: numeric/year, YYYY-MM-DD, YYYY-MM, YYYY-Q1, DD/MM/YYYY, MM/DD/YYYY, or an ISO timestamp with seconds and Z/offset (millisecond precision at most). Invalid calendar dates, mixed formats and ambiguous unselected formats are rejected. Numeric epochs are treated as numeric coordinates, not automatically decoded dates. Excel serial dates are not decoded.
+- Time format remains editable: numeric/year, YYYY-MM-DD, YYYY-MM, YYYY-Q1, DD/MM/YYYY, MM/DD/YYYY, or an ISO timestamp with seconds and Z/offset (millisecond precision at most). Unambiguous formats can be preselected. Invalid calendar dates, mixed formats and ambiguous unselected formats are rejected. Numeric epochs can be read as numeric coordinates with explicit selection, but are not decoded dates. Excel serial dates are not decoded.
 - Time keys sort chronologically while labels retain dates/months/quarters. Timezone-aware timestamps normalize to UTC; timezone-naive timestamps and unknown-offset `-00:00` are rejected. Calendar dates have no inferred local timezone. Line figures retain elapsed-time spacing; month/quarter coordinates use the period start. No periods are invented. Entities and variables keep input order.
-- Numbers use JavaScript Number; raw-table display adds no rounding, but arbitrary precision and original lexical formatting are not preserved. Summary display is rounded; summary CSV is not.
+- Entity keys keep their text after surrounding whitespace is trimmed, including leading zeros and long integer IDs. JSON numeric tokens are preserved before mapping where the runtime supports source-aware parsing. Older runtimes reject unsafe unquoted integers and ask for quoted IDs. Numeric measures use JavaScript Number and do not retain lexical formatting or arbitrary decimal precision. Integers outside its safe range are unchecked by default and rejected as measures or numeric time keys. Summary display is rounded, while summary CSV exports stored numeric values.
 - CSV export contains one face and identifies its fixed layer/statistic in the filename. Missing and absent values both export as blanks. Formula-like labels are escaped. Source files are never automatically overwritten.
-- Guards: 10 MB per file/paste, 100,000 records after reshaping/combining, 2,000,000 potential panel cells. The largest actual stress-tested dataset has 53,940 records; the guards are not tested capacity promises. Figures retain a separate 12,000-position limit. XLSX, Parquet, arbitrary nested JSON, time resampling, overlapping-entity updates, joins, remote SQL/Databricks, editing and persistent saved sessions remain outside this prototype.
+- In-memory import guards (not the Parquet source-file limit): 10 MB per file/paste, 100,000 records after reshaping/combining, 2,000,000 potential panel cells. The composer also limits materialized output cells to 2,000,000. The largest actual stress-tested dataset has 53,940 records; the guards are not tested capacity promises. Figures retain a separate 12,000-position limit. XLSX, arbitrary nested JSON, time resampling, overlapping-entity updates, many-to-many or interval joins, remote SQL/Databricks, editing and persistent saved sessions remain outside this prototype.
 
 ## Data flow and validation
 
 ```text
-CSV / TSV / JSON / JSONL → import.mjs (decode, map, reshape, combine)
+CSV / TSV / JSON / JSONL → import.mjs (decode without losing ID tokens)
+    → detect.mjs (suggest axes) + data.mjs (describe column representations)
+    → editable mapping → import.mjs (map, reshape, combine)
     → time.mjs (strict time keys and labels) + data.mjs (validate, index)
     → reader.mjs (coordinates) + analysis.mjs (aggregation, figure data)
     → interaction.mjs (key routing/cell movement) + app.mjs (table/focus)
@@ -147,6 +161,9 @@ The earlier file-picker crash did not recur: the current TSV chooser import comp
 - 2026-10-08: Unified bilingual controls, simplified dataset switching, added visible-variable selection and raw-observation summary tables. Replaced repeated full-table rendering and quadratic entity lookup with bounded pages and set indexing; validated with larger real datasets and a pandas oracle.
 - 2026-10-08: User confirmed option A: arrows navigate layers/faces, Shift + arrows move cells. Fixed control focus ownership, distinguished held input from separate taps, and made figure variables/entities/time explicit and independent. See [INTERACTION_DESIGN.md](INTERACTION_DESIGN.md).
 - 2026-10-08: Replaced decorative dot separators with spaced fields or descriptive labels, and rewrote semicolon-heavy UI copy. Added a bilingual Quick guide at the top left. Working project name: TableOrbit, approved by the user. Earlier naming proposals are superseded.
+- 2026-10-08: Added conservative axis suggestions and optional column-type inspection. Only unambiguous formats and unique full-record keys are preselected. This replaces entirely manual initial mapping while retaining user control over observation units, composite keys, date interpretation and numeric conversions. Long JSON IDs are preserved and unsafe integer arithmetic is rejected. See [IMPORT_DETECTION.md](IMPORT_DETECTION.md).
+- 2026-10-08: Curated the presentation menu to Grunfeld, Gapminder and NLS work. Other bundled datasets remain intact for import and regression checks. Promoted Create figure with the existing blue accent, moved table export to the table tools, and grouped selection counts with their buttons. No data files, observations or variable definitions changed.
+- 2026-10-08: User selected CLI-managed connections with visual table/key selection. Added a local two-table join/append prototype and offline connector diagnostics. Remote adapters and the authenticated session broker are still design work. See [MULTITABLE_CONNECTIONS.md](MULTITABLE_CONNECTIONS.md).
 - Open usability question: whether the confirmed mapping remains comfortable during longer sessions. Open analytical question: whether users understand the changing effective n in unbalanced panels. Neither is answered by passing tests.
 
 ## Sample
@@ -155,10 +172,12 @@ Grunfeld: 11 firms × 20 years × 3 measures, 220 rows. [CSV source](https://git
 
 Gapminder: 142 countries × 12 years (1952–2007 in five-year steps), 1,704 rows. Bundled [TSV source](https://github.com/jennybc/gapminder/blob/main/inst/extdata/gapminder.tsv) from Jenny Bryan's teaching package; [documentation](https://jennybc.github.io/gapminder/articles/gapminder.html). `lifeExp` is life expectancy in years, `pop` population, and `gdpPercap` the source GDP-per-capita measure. `continent` remains a source identifier but is not displayed as a numeric variable.
 
-Two bundled derivatives are explicit teaching subsets: `gapminder-2007.json` keeps 2007 rows and removes the constant year; `gapminder-life-expectancy.csv` pivots only Canada, China and United States life expectancy into columns, preserving all 12 source years and values. Examples use saved field mappings through the shared importer; there is no dataset-specific analysis logic.
+Two bundled derivatives are retained as import fixtures outside the presentation menu: `gapminder-2007.json` keeps 2007 rows and removes the constant year; `gapminder-life-expectancy.csv` pivots only Canada, China and United States life expectancy into columns, preserving all 12 source years and values. Examples use saved field mappings through the shared importer; there is no dataset-specific analysis logic.
 
-Diamonds, NLS work and weekly CO₂ are also available in the dataset switcher. Their exact sources, preparation, observation units and validation limits are in [STRESS_TEST.md](STRESS_TEST.md).
+NLS work remains in the dataset switcher as the unbalanced panel example: 4,711 individuals, 15 observed waves and 28,534 records. Diamonds and weekly CO₂ remain unchanged in `web/data` for cross-section and single-series regression checks, but are no longer presentation choices. Their exact sources, preparation, observation units and validation limits are in [STRESS_TEST.md](STRESS_TEST.md). No files were moved, archived or deleted during this curation.
 
 ## License and third-party material
 
 Original application code is licensed under [MIT](LICENSE). Bundled example data and the unused Three.js files are third-party material, with sources and notices listed in [THIRD_PARTY.md](THIRD_PARTY.md).
+
+- 2026-10-08: Added a DuckDB-backed local Parquet scan path with bounded pages, column projection, typed filters and explicit bounded panel extraction. Target: at least 1 GB on disk, pending a large-file benchmark. User deferred large-file generation in favor of small-sample validation. See [LAZY_FILES.md](LAZY_FILES.md).

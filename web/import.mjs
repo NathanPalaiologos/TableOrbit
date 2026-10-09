@@ -7,7 +7,16 @@ export function parseFile(text, name) {
   if (extension === 'csv' || extension === 'tsv') return parseCSV(text, extension === 'tsv' ? '\t' : ',');
   if (!['json', 'jsonl', 'ndjson'].includes(extension)) throw new Error('Supported formats: CSV, TSV, JSON, JSONL, NDJSON.');
   text = text.replace(/^\uFEFF/, '');
-  const values = extension === 'json' ? JSON.parse(text) : text.split(/\r?\n/).filter(line => line.trim()).map(line => JSON.parse(line));
+  // Retain numeric tokens as text before key selection. Modern runtimes expose
+  // the original token even when converting it to Number would lose precision.
+  const decode = source => JSON.parse(source, (key,value,context) => {
+    if (typeof value !== 'number') return value;
+    if (!Number.isFinite(value)) throw new Error('Nonfinite JSON number.');
+    if (context?.source) return context.source;
+    if (Number.isInteger(value) && !Number.isSafeInteger(value)) throw new Error('Quote large JSON numbers as strings in this browser.');
+    return value;
+  });
+  const values = extension === 'json' ? decode(text) : text.split(/\r?\n/).filter(line => line.trim()).map(decode);
   if (!Array.isArray(values) || !values.length || values.length > MAX_ROWS) throw new Error('Expected 1–100,000 JSON records.');
   const headers = [];
   for (const row of values) {

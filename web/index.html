@@ -9,9 +9,8 @@
 <body>
   <header class="toolbar">
     <div class="brand"><strong>TableOrbit</strong><button id="open-guide" data-i18n="guide" aria-haspopup="dialog">Quick guide</button></div><span id="filename" hidden></span>
-    <label class="dataset-control"><span data-i18n="dataset">Dataset</span><select id="example" data-i18n-aria="dataset"><option value="grunfeld">Grunfeld</option><option value="gapminder">Gapminder</option><option value="cross" data-i18n="exampleCross">Gapminder (2007 snapshot)</option><option value="wide" data-i18n="exampleWide">Life expectancy (3 countries)</option><option value="diamonds" data-i18n="exampleDiamonds">Diamonds (53,940 rows)</option><option value="nlswork" data-i18n="exampleNls">NLS work (28,534 rows)</option><option value="co2" data-i18n="exampleCo2">CO₂ (weekly series)</option></select></label><span class="spacer"></span>
-    <button id="open-csv" data-i18n="openFile">Open file…</button><button id="open-paste" data-i18n="paste">Paste…</button>
-    <button id="export-button" data-i18n="exportFace">Export table</button><button id="open-figure" data-i18n="figure">Figure…</button>
+    <label class="dataset-control"><span data-i18n="dataset">Dataset</span><select id="example" data-i18n-aria="dataset"><option value="grunfeld" data-i18n="exampleGrunfeld">Grunfeld (firms)</option><option value="gapminder" data-i18n="exampleGapminder">Gapminder (countries)</option><option value="nlswork" data-i18n="exampleNls">NLS work (individuals)</option></select></label>
+    <div class="dataset-actions"><button id="open-csv" data-i18n="openFile">Open file…</button><button id="open-scan" data-i18n="scanTitle" aria-haspopup="dialog">Scan Parquet</button><button id="open-paste" data-i18n="paste">Paste…</button><button id="open-compose" data-i18n="composeTitle" aria-haspopup="dialog">Combine tables</button><button id="open-figure" class="primary-action" data-i18n="figure" aria-haspopup="dialog">Create figure</button></div>
     <select id="language" data-i18n-aria="language" aria-label="Language"><option value="en">English</option><option value="zh">中文</option></select>
     <input id="file-input" type="file" accept=".csv,.tsv,.json,.jsonl,.ndjson" hidden>
   </header>
@@ -21,9 +20,10 @@
     <label id="summary-scope-control" hidden><span data-i18n="summaryScope">Statistics over</span> <select id="summary-scope" data-i18n-aria="summaryScope"><option value="all" data-i18n="allPeriods">All periods</option><option value="current" data-i18n="currentPeriod">Current period</option></select></label>
   </nav>
   <div class="analysis-toolbar">
-    <button id="open-scope" data-i18n="scope">Entities…</button><span id="scope-count"></span>
-    <button id="open-variables" data-i18n="chooseVariables">Variables…</button><span id="variable-count"></span>
+    <div class="selection-control"><button id="open-scope" data-i18n="scope">Entities…</button><span id="scope-count"></span></div>
+    <div class="selection-control"><button id="open-variables" data-i18n="chooseVariables">Variables…</button><span id="variable-count"></span></div>
     <button id="toggle-summary" data-i18n="summary" aria-pressed="false">Summary statistics</button>
+    <button id="export-button" data-i18n="exportFace">Export table</button>
     <label id="aggregation-control"><span data-i18n="aggregation">Across entities</span> <select id="aggregation" data-i18n-aria="aggregation"></select></label>
     <span id="aggregation-note"></span>
   </div>
@@ -47,6 +47,37 @@
     <section><h3 data-i18n="guideAnalyzeTitle">Summarize and plot</h3><p data-i18n="guideSummary"></p><p data-i18n="guidePlot"></p></section>
     <details><summary data-i18n="guideImportTitle">Open your own data</summary><p data-i18n="guideImport"></p><p data-i18n="guideSeries"></p></details>
   </dialog>
+  <dialog id="scan-dialog" aria-labelledby="scan-title">
+    <div class="figure-heading"><h2 id="scan-title" data-i18n="scanTitle">Scan Parquet</h2><button id="scan-close" data-i18n="close">Close</button></div>
+    <label class="scan-path"><span data-i18n="scanPath">Local file path</span><input id="scan-path" type="text" spellcheck="false" placeholder="C:\data\panel.parquet"><button id="scan-inspect" data-i18n="open">Open</button></label>
+    <p data-i18n="scanNote">Reads directly from disk. Opening reads metadata and one page, not the entire file.</p><p id="scan-meta" class="text-fields"></p>
+    <fieldset id="scan-options" disabled><details><summary data-i18n="scanColumns">Columns (up to 24)</summary><div id="scan-columns"></div></details>
+      <div id="scan-filters"></div><button id="scan-add-filter" data-i18n="scanAddFilter">Add filter</button>
+    </fieldset>
+    <div class="scan-actions"><button id="scan-apply" data-i18n="scanApply" disabled>Apply selection</button><button id="scan-extract" data-i18n="scanExtract" disabled>Open selection as panel</button><button id="scan-cancel" data-i18n="cancel" hidden>Cancel</button></div>
+    <p data-i18n="scanLimitNote">Panel extraction requires the complete selected result to fit 100,000 rows and 10 MB. Source paging reads on demand. Large-file capacity is still being validated.</p>
+    <p id="scan-error" role="alert"></p><div id="scan-table"></div>
+    <div class="scan-pages"><button id="scan-prev" data-i18n="previousRows" disabled>Previous rows</button><span id="scan-page-info"></span><button id="scan-next" data-i18n="nextRows" disabled>Next rows</button><label><span data-i18n="scanStartRow">Start row</span><input id="scan-offset" type="number" min="1" step="1" value="1"></label><button id="scan-jump" data-i18n="scanGo" disabled>Go</button></div>
+  </dialog>
+  <dialog id="compose-dialog" aria-labelledby="compose-title">
+    <div class="figure-heading"><h2 id="compose-title" data-i18n="composeTitle">Combine tables</h2><button id="compose-close" data-i18n="close">Close</button></div>
+    <div class="compose-sources">
+      <label><span data-i18n="composeLeft">Left table</span><input id="compose-left-file" type="file" accept=".csv,.tsv,.json,.jsonl,.ndjson"><span id="compose-left-name"></span></label>
+      <label><span data-i18n="composeRight">Right table</span><input id="compose-right-file" type="file" accept=".csv,.tsv,.json,.jsonl,.ndjson"><span id="compose-right-name"></span></label>
+    </div>
+    <label><span data-i18n="composeAction">Operation</span> <select id="compose-operation"><option value="left" data-i18n="composeLeftJoin">Add columns, keep all left rows</option><option value="inner" data-i18n="composeInnerJoin">Add columns, keep matched rows</option><option value="append" data-i18n="composeAppend">Append rows with the same columns</option></select></label>
+    <div id="compose-join-fields">
+      <p data-i18n="composeKeyNote">Match exact key values. Add a pair for each part of a composite key.</p>
+      <div id="compose-keys"></div><button id="compose-add-key" data-i18n="composeAddKey" disabled>Add key pair</button>
+      <label class="compose-cardinality"><span data-i18n="composeRelation">Expected relationship</span><select id="compose-cardinality"><option value="many-to-one" data-i18n="composeManyOne">Many left rows to one right row</option><option value="one-to-one" data-i18n="composeOneOne">One left row to one right row</option></select></label>
+      <fieldset><legend data-i18n="composeChooseColumns">Columns to add from the right table</legend><div id="compose-columns"></div></fieldset>
+    </div>
+    <p data-i18n="composeNote">Review the row counts before opening. No deduplication, aggregation or date conversion. Panel keys are checked in the next step.</p>
+    <button id="compose-check" data-i18n="composeCheck" disabled>Check and preview</button>
+    <p id="compose-error" role="alert"></p><p id="compose-audit" role="status"></p>
+    <div id="compose-preview"></div><p data-i18n="composePreviewNote">Preview shows the first five rows. Checks cover all loaded rows.</p>
+    <div class="dialog-actions"><button id="compose-open" data-i18n="composeOpen" disabled>Choose panel axes</button></div>
+  </dialog>
   <dialog id="open-dialog"><form id="paste-form">
     <h2 data-i18n="paste">Paste…</h2>
     <p data-i18n="pasteHint">Or paste a small table below.</p>
@@ -55,15 +86,17 @@
     <p id="paste-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-open" data-i18n="cancel">Cancel</button><button data-i18n="nextStep">Next</button></div>
   </form></dialog>
   <dialog id="mapping-dialog"><form id="mapping-form">
-    <h2 data-i18n="fields">Data fields</h2><p id="import-info"></p>
+    <h2 data-i18n="fields">Data fields</h2><p id="import-info"></p><p id="detection-note" role="status"></p>
     <label><span data-i18n="structure">Structure</span><select id="import-mode"><option value="panel" data-i18n="panelMode">Panel (long)</option><option value="cross-section" data-i18n="cross">Cross-section</option><option value="series" data-i18n="seriesMode">One time series</option><option value="wide" data-i18n="wideMode">Time series → panel</option></select></label>
     <label><span data-i18n="entityColumn">Entity column</span><select id="entity-column" required></select></label>
     <label><span data-i18n="timeColumn">Time column</span><select id="time-column" required></select></label>
-    <label><span data-i18n="timeFormat">Time format</span><select id="time-format"><option value="number" data-i18n="numericTime">Numeric / year</option><option value="date">YYYY-MM-DD</option><option value="month">YYYY-MM</option><option value="quarter">YYYY-Q1</option><option value="timestamp" data-i18n="timestampFormat">ISO timestamp (Z / ±HH:MM)</option><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option></select></label>
+    <label><span data-i18n="timeFormat">Time format</span><select id="time-format" required><option value="" disabled data-i18n="chooseFormat">Choose time format</option><option value="number" data-i18n="numericTime">Numeric / year</option><option value="date">YYYY-MM-DD</option><option value="month">YYYY-MM</option><option value="quarter">YYYY-Q1</option><option value="timestamp" data-i18n="timestampFormat">ISO timestamp (Z / ±HH:MM)</option><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option></select></label>
     <label hidden><span data-i18n="entityName">Entity name</span><input id="entity-name" maxlength="100"></label>
     <label hidden><span data-i18n="measureName">Common measure / unit</span><input id="measure-name" maxlength="100" data-i18n-placeholder="measureExample" placeholder="e.g. temperature (°C)"></label>
     <p id="structure-note"></p><p id="time-preview"></p>
     <fieldset><legend id="variable-legend" data-i18n="numeric">Numeric variables</legend><div id="import-variables"></div></fieldset>
+    <p id="large-integer-note" data-i18n="largeIntegerNote" hidden></p>
+    <details><summary data-i18n="columnTypes">Column types</summary><p data-i18n="typeNote"></p><div id="column-types"></div></details>
     <label id="append-control" hidden><span><input type="checkbox" id="append-series"> <span data-i18n="appendSeries">Add as new entities to the current panel</span></span></label>
     <p id="append-note" hidden data-i18n="appendNote">Use identical measure names, units and time format. Dates are aligned by their union, with no filling or resampling.</p>
     <p id="import-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-import" data-i18n="cancel">Cancel</button><button type="submit" data-i18n="open">Open</button></div>
@@ -99,7 +132,7 @@
         <label><span data-i18n="template">Template</span><select id="plot-template"><option value="nature">Nature</option><option value="seaborn" data-i18n="seabornTemplate">Seaborn paper</option><option value="icml" data-i18n="csTemplate">ICML</option><option value="aer" data-i18n="econTemplate">AER</option></select></label>
         <label><span data-i18n="size">Width</span><select id="plot-size"><option value="single" data-i18n="single">Single column</option><option value="double" data-i18n="double">Double column</option></select></label>
       </div></details>
-      <div class="figure-controls"><label class="axis-input"><span data-i18n="xLabel">X label / unit</span><input id="plot-x-label" maxlength="160" required></label><label class="axis-input"><span data-i18n="yLabel">Y label / unit</span><input id="plot-y-label" maxlength="160" required></label><button id="draw-figure" type="submit" data-i18n="draw">Draw</button></div>
+      <div class="figure-controls"><label class="axis-input"><span data-i18n="xLabel">X label / unit</span><input id="plot-x-label" maxlength="160" required></label><label class="axis-input"><span data-i18n="yLabel">Y label / unit</span><input id="plot-y-label" maxlength="160" required></label><button id="draw-figure" class="primary-action" type="submit" data-i18n="draw">Draw</button></div>
     </form>
     <p id="figure-context"></p><div id="figure-preview"><span data-i18n="figureEmpty">Choose a plot and draw.</span></div>
     <p id="figure-status" role="status"></p>

@@ -15,7 +15,7 @@ export function parseTime(raw, format = 'number') {
   if (!text || !TIME_FORMATS.includes(format)) return fail();
   if (format === 'number') {
     const key = Number(text);
-    if (!Number.isFinite(key)) return fail();
+    if (!Number.isFinite(key) || (Number.isInteger(key) && !Number.isSafeInteger(key))) return fail();
     return {key, label:String(key)};
   }
   let match, key;

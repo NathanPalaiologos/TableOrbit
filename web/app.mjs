@@ -1,4 +1,4 @@
-import { parseCSV, buildPanel, numericColumns, cell } from './data.mjs';
+import { parseCSV, buildPanel, numericColumns, cell, columnTypes } from './data.mjs';
 import { faceIndex, isCrossSection, layerValues, moveLayer, coordinateAt, variableIndexes } from './reader.mjs';
 import { METHODS, aggregateAt, viewRows, summaryTable, SUMMARY_COLUMNS } from './analysis.mjs';
 import { t, setLanguage, getLanguage, translateDOM, errorText, textFields } from './i18n.mjs';
@@ -7,6 +7,9 @@ import { parseFile, importTable, combinePanels } from './import.mjs';
 import { parseTime, timeLabel } from './time.mjs';
 import { MAX_BYTES, PAGE_ROWS, PAGE_COLUMNS } from './limits.mjs';
 import { readerCommand, moveCell, acceptsRepeat } from './interaction.mjs';
+import { suggestMapping, detectTimeFormats } from './detect.mjs';
+import { setupComposer } from './composer.mjs';
+import { setupScanner } from './scanner.mjs';
 
 const $ = id => document.getElementById(id);
 const escapeHTML = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -17,8 +20,12 @@ const sessions = new Map();
 let scopeDraft = new Set();
 let panel, demoText, parsedImport, importName, currentName, messageTimer, rotationTimer, layerTimer;
 let rotatingNow = false, lastRepeatAt = 0;
+let importSuggestion = null, mappingEdited = false, rowIdOptionValue = '';
+let importTypes = [];
 const faces = [...document.querySelectorAll('.face')];
 const figureUI = setupFigures({getContext:() => ({panel, state, name:currentName}), vscode});
+const composerUI = setupComposer({openResult:prepareImport});
+const scannerUI = setupScanner({vscode,openResult:prepareImport});
 try { setLanguage(localStorage.getItem('panel-space-language')); } catch { /* storage is optional */ }
 
 function applyLanguage() {
@@ -28,8 +35,10 @@ function applyLanguage() {
   translateDOM();
   $('aggregation').replaceChildren(...METHODS.map(method => new Option(t(method), method)));
   if (panel) render();
-  if (parsedImport && $('mapping-dialog').open) updateImportVariables();
+  if (parsedImport && $('mapping-dialog').open) { updateImportVariables(); updateDetectionNote(); }
   figureUI.translate();
+  composerUI.translate();
+  scannerUI.translate();
 }
 $('language').addEventListener('change', () => {
   setLanguage($('language').value);
@@ -301,17 +310,26 @@ function prepareImport(text, name, defaults = {}) {
   try {
     parsedImport = parseFile(text, name);
     importName = name;
+    importTypes = columnTypes(parsedImport);
     textFields($('import-info'),[name,`${parsedImport.rows.length} ${t('rowCount')}`]);
-    for (const id of ['entity-column','time-column']) $(id).replaceChildren(...parsedImport.headers.map(name => new Option(name, name)));
-    $('entity-column').add(new Option(t('rowIdOption'),''));
-    $('entity-column').value = parsedImport.headers.find(name => /^(firm|entity|id|company|country)$/i.test(name)) ?? parsedImport.headers[0];
-    $('time-column').value = parsedImport.headers.find(name => /^(year|time|date|month|quarter|timestamp|t)$/i.test(name)) ?? parsedImport.headers[1] ?? parsedImport.headers[0];
-    $('import-mode').value = defaults.mode ?? 'panel';
-    $('time-format').value = 'number';
+    importSuggestion = suggestMapping(parsedImport); mappingEdited = false;
+    const suggested = importSuggestion.mapping ?? {};
+    rowIdOptionValue = '__row_number__';
+    while (parsedImport.headers.includes(rowIdOptionValue)) rowIdOptionValue += '_';
+    for (const id of ['entity-column','time-column']) {
+      const placeholder = new Option(t('chooseColumn'),''); placeholder.disabled = true;
+      $(id).replaceChildren(placeholder,...parsedImport.headers.map(name => new Option(name, name)));
+    }
+    $('entity-column').add(new Option(t('rowIdOption'),rowIdOptionValue));
+    $('entity-column').value = suggested.entity ?? '';
+    $('time-column').value = suggested.time ?? '';
+    $('import-mode').value = defaults.mode ?? suggested.mode ?? 'panel';
+    $('time-format').value = suggested.timeFormat ?? '';
     $('entity-name').value = name.replace(/\.[^.]+$/, '');
     $('measure-name').value = defaults.measure ?? '';
     $('append-series').checked = false;
     updateImportVariables();
+    updateDetectionNote();
     $('import-error').textContent = '';
     $('open-dialog').close();
     $('mapping-dialog').showModal();
@@ -320,12 +338,17 @@ function prepareImport(text, name, defaults = {}) {
     else message(errorText(error));
   }
 }
+function updateDetectionNote() {
+  const candidates = !mappingEdited && importSuggestion?.reason === 'detectMultiple'
+    ? importSuggestion.candidates.slice(0,6).map(candidate => `${candidate.entity} / ${candidate.time}`).join(', ') : '';
+  $('detection-note').textContent = t(mappingEdited ? 'detectEdited' : importSuggestion?.reason ?? 'detectUnknown') + (candidates ? ` ${candidates}` : '');
+}
 function updateImportVariables() {
   const mode = $('import-mode').value;
   const hasEntity = ['panel','cross-section'].includes(mode), hasTime = mode !== 'cross-section';
-  $('entity-column').required = mode === 'panel';
-  $('entity-column').querySelector('option[value=""]').disabled = mode !== 'cross-section';
-  if (mode !== 'cross-section' && !$('entity-column').value) $('entity-column').selectedIndex = 0;
+  $('entity-column').required = hasEntity;
+  $('entity-column').options[$('entity-column').options.length-1].disabled = mode !== 'cross-section';
+  if (mode !== 'cross-section' && $('entity-column').value === rowIdOptionValue) $('entity-column').value = '';
   const canAppend = ['series','wide'].includes(mode) && panel?.kind !== 'cross-section';
   $('append-control').hidden = !canAppend;
   $('append-note').hidden = !canAppend;
@@ -338,26 +361,37 @@ function updateImportVariables() {
   $('variable-legend').textContent = t(mode === 'wide' ? 'seriesColumns' : 'numeric');
   const excluded = [...(hasEntity ? [$('entity-column').value] : []), ...(hasTime ? [$('time-column').value] : [])];
   const variables = numericColumns(parsedImport, excluded);
-  $('import-variables').innerHTML = variables.map(name => `<label><input type="checkbox" data-variable="${escapeHTML(name)}" checked> ${escapeHTML(name)}</label>`).join('') || t('noNumeric');
+  const largeIntegers = new Set(importTypes.filter(profile => profile.type === 'typeLargeInteger').map(profile => profile.name));
+  $('large-integer-note').hidden = !variables.some(name => largeIntegers.has(name));
+  $('import-variables').innerHTML = variables.map(name => `<label><input type="checkbox" data-variable="${escapeHTML(name)}" ${largeIntegers.has(name) ? '' : 'checked'}> ${escapeHTML(name)}</label>`).join('') || t('noNumeric');
+  $('column-types').innerHTML = importTypes.map(profile => `<div><strong>${escapeHTML(profile.name)}</strong><span>${t(profile.type)}${profile.missing ? ` (${profile.missing} ${t('missing')})` : ''}</span></div>`).join('');
   updateTimePreview();
 }
 function updateTimePreview() {
   $('time-preview').textContent = '';
   if ($('import-mode').value === 'cross-section') return;
+  if (!$('time-column').value || !$('time-format').value) return;
   try {
     const labels = [...new Set(parsedImport.rows.map(row => parseTime(row[$('time-column').value], $('time-format').value).label))];
     $('time-preview').textContent = `${t('timePreview')}: ${labels.slice(0,3).join(', ')}${labels.length > 3 ? ' …' : ''}${$('time-format').value === 'timestamp' ? ' (UTC)' : ''}`;
   } catch (error) { $('time-preview').textContent = errorText(error); }
 }
-for (const id of ['entity-column','time-column','import-mode']) $(id).addEventListener('change', updateImportVariables);
-$('time-format').addEventListener('change', updateTimePreview);
+for (const id of ['entity-column','time-column','import-mode']) $(id).addEventListener('change', () => {
+  mappingEdited = true;
+  if (id === 'time-column') {
+    const formats = detectTimeFormats(parsedImport,$('time-column').value);
+    $('time-format').value = formats.length === 1 ? formats[0] : '';
+  }
+  updateImportVariables(); updateDetectionNote();
+});
+$('time-format').addEventListener('change', () => { mappingEdited = true; updateTimePreview(); updateDetectionNote(); });
 $('cancel-import').addEventListener('click', () => $('mapping-dialog').close());
 $('mapping-form').addEventListener('submit', event => {
   event.preventDefault();
   try {
     const variables = [...document.querySelectorAll('[data-variable]:checked')].map(input => input.dataset.variable);
     let next = importTable(parsedImport, {mode:$('import-mode').value, entity:$('entity-column').value, time:$('time-column').value, variables,
-      timeFormat:$('time-format').value, entityName:$('entity-name').value, measure:$('measure-name').value,rowId:$('import-mode').value === 'cross-section' && !$('entity-column').value});
+      timeFormat:$('time-format').value, entityName:$('entity-name').value, measure:$('measure-name').value,rowId:$('import-mode').value === 'cross-section' && $('entity-column').value === rowIdOptionValue});
     const append = $('append-series').checked;
     if (append) next = combinePanels(panel, next);
     $('mapping-dialog').close();
@@ -389,17 +423,13 @@ async function loadDemo() {
       const saved = sessions.get(example);
       installPanel(saved.panel,saved.name,example);
     } else if (example !== 'grunfeld') {
-      const filename = {gapminder:'gapminder.tsv',cross:'gapminder-2007.json',wide:'gapminder-life-expectancy.csv',diamonds:'diamonds.csv',nlswork:'nlswork.csv',co2:'co2.csv'}[example];
+      const filename = {gapminder:'gapminder.tsv',nlswork:'nlswork.csv'}[example];
       const response = await fetch(new URL(`./data/${filename}`, import.meta.url));
       if (!response.ok) throw new Error('Could not load example data.');
       const parsed = parseFile(await response.text(),filename);
       const mapping = {
         gapminder:{entity:'country',time:'year',variables:['lifeExp','pop','gdpPercap']},
-        cross:{mode:'cross-section',entity:'country',variables:['lifeExp','pop','gdpPercap']},
-        wide:{mode:'wide',time:'year',variables:['Canada','China','United States'],measure:'life expectancy (years)'},
-        diamonds:{mode:'cross-section',rowId:true,variables:['carat','depth','table','price','x','y','z']},
-        nlswork:{entity:'idcode',time:'year',variables:numericColumns(parsed,['idcode','year'])},
-        co2:{mode:'series',entityName:'Mauna Loa',time:'date',timeFormat:'date',variables:['co2']}
+        nlswork:{entity:'idcode',time:'year',variables:numericColumns(parsed,['idcode','year'])}
       }[example];
       installPanel(importTable(parsed,mapping),filename,example);
     } else {
@@ -501,6 +531,7 @@ $('export-button').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 window.addEventListener('message', event => {
+  if (event.data?.type === 'parquet' && typeof event.data.path === 'string') scannerUI.inspect(event.data.path);
   if (event.data?.type === 'csv' && typeof event.data.text === 'string') prepareImport(event.data.text, event.data.name);
   if (event.data?.type === 'exported') message(t('saved'));
 });
@@ -512,4 +543,5 @@ try {
   });
   loadDemo();
   if (boot?.csv) prepareImport(boot.csv, boot.name);
+  if (boot?.parquet || scannerUI.initial) scannerUI.inspect(boot?.parquet || scannerUI.initial);
 } catch (error) { message(errorText(error)); console.error(error); }
