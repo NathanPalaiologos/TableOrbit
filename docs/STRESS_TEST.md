@@ -20,7 +20,7 @@ Stata documentation datasets are teaching copies; the publisher notes that some 
 | NLS work | 28,534 | 4,711 | 15 | 19 | 16,747 | 42,131 | 674 ms | 256 ms |
 | CO₂ | 2,284 | 1 | 2,284 | 1 | 59 | 0 | 27 ms | 1 ms |
 
-Node v24.15.0 on this Windows machine. Import timing includes decoding, numeric-column detection and panel indexing; summary timing includes selected-population construction and all displayed statistics. Timings are one bounded local run, not browser interaction latency or a cross-machine benchmark. Observed process heap after each dataset was 137 / 189 / 197 MB, cumulative and subject to garbage collection, not peak memory. Machine-readable results: `tests/fixtures/stress-results.json`.
+Node v24.15.0 on this Windows machine. Import timing includes decoding, numeric-column detection and panel indexing; summary timing includes selected-population construction and all displayed statistics. Timings are one bounded local run, not browser interaction latency or a cross-machine benchmark. Observed process heap after each dataset was 137 / 189 / 197 MB, cumulative and subject to garbage collection, not peak memory. Original run: [stress-results-2026-10-08.json](stress-results-2026-10-08.json). New runs write `tests/output/stress-results.json`, which Git ignores.
 
 `tests/reference_stats.py` independently calculates N, missingness, absent records, mean, sample SD, min/max and linearly interpolated quartiles using pandas. All 27 numeric variables across these datasets matched the JavaScript statistics at relative/absolute tolerance 1e-9. Input SHA-256 hashes are recorded in `tests/fixtures/real-data-reference.json`; a changed source invalidates the comparison.
 
@@ -46,7 +46,7 @@ N counts nonmissing values. Missing counts null values in existing records. No r
 
 The data limit is 10 MB / 100,000 records / 2,000,000 potential panel cells. These are guards, not verified capacity promises. The largest actual dataset tested is 53,940 records. Table pages are at most 100 rows × 24 columns, and at most five datasets are retained in the switcher cache. Statistics and table exports operate on the complete selection, not the visible page. Entity selection renders at most 200 search matches without discarding other selections.
 
-Native VS Code dialogs were not exercised this turn; the shared browser logic was. Figure inputs retain the separate 12,000-position bound, with an explicit message to reduce the selection or aggregate. Million-row browsing, worker-based ingestion, XLSX/Parquet support, native categorical summaries and cross-device performance remain unverified/unimplemented.
+Native VS Code dialogs were not exercised this turn; the shared browser logic was. Figure inputs retain the separate 12,000-position bound, with an explicit message to reduce the selection or aggregate. At the time of this run, large-file Parquet reading and native installation had not been tested. See the later [Parquet tests](PARQUET_VALIDATION.md) and [VSIX test](VSIX_LOCAL_TEST.md). XLSX, native categorical summaries and cross-device performance remain outside these checks.
 
 ## Reproduce
 

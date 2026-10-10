@@ -10,3 +10,9 @@ node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# Generated test output
+/tests/output/
+
+# Retired prototype retained locally; restore details are in MANIFEST.md.
+/archive/2026-10-10-retired-prototype/web/

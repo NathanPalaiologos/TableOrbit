@@ -2,13 +2,21 @@
 
 TableOrbit accepts JSON Lines on stdin and returns JSON Lines on stdout. It uses the same read-only Parquet query engine as the browser and VS Code extension. It does not need an open webview or HTTP server.
 
-From the repository:
+## Start the installed CLI
+
+1. Run **TableOrbit: Show Agent CLI Command** in VS Code.
+2. Copy the command from the **TableOrbit CLI** Output channel.
+3. Run it in Bash, or pass its executable and arguments to your agent.
+
+The command uses the installed script path and configured Python executable. The VSIX does not add `tableorbit` to PATH. The agent needs Node.js 20 or later. Parquet needs Python with DuckDB. Figures also need Matplotlib and Seaborn. See [installation](INSTALL.md) for setup.
+
+From a source checkout, run this in the repository root:
 
 ```bash
 node scripts/tableorbit.mjs agent
 ```
 
-Set `PANEL_SPACE_PYTHON` to an existing Python with DuckDB if needed. Figures additionally need Matplotlib and Seaborn. In the extension, run **TableOrbit: Show Agent CLI Command** to obtain the installed script path and configured interpreter. A VSIX does not automatically put `tableorbit` on the shell's PATH. Node must be available to the agent process. Remote hosts need their own paths and environment.
+Set `PANEL_SPACE_PYTHON` if the required packages are in another Python environment. Files and Python must exist on the host where the CLI runs.
 
 ## Protocol
 

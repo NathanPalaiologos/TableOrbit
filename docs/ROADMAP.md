@@ -4,11 +4,13 @@ Updated 2026-10-10. Toolbar/themes, a persistent Python worker, direct Parquet p
 
 ## Product direction
 
-The core task is to open data, choose columns and time, move between table views, then produce a summary or figure. The next release should make that same task work against a large file without extracting the whole panel into JavaScript first.
+The core task is to open data, choose columns and time, move between table views, then produce a summary or figure. The Parquet reader now supports this task without extracting the whole panel into JavaScript. Integrating it with the main reader remains planned.
 
 The UI now keeps Dataset, Variables and Create figure visible. Data, View and Settings contain the other controls. The browser has light, dark and system themes. The extension uses VS Code theme variables. English and Chinese share the layout. Publication figures keep their white background.
 
 ## Package size
+
+The later [VSIX test](VSIX_LOCAL_TEST.md) measured a 753,277-byte artifact. Estimates below predate that package and the new documentation screenshots.
 
 The explicit package file list was compressed in memory with Python ZIP/Deflate, level 6, including package.json. This estimates the payload, not a built or installed VSIX. Rounded decimal sizes remain appropriate after small documentation edits.
 

@@ -33,7 +33,7 @@
         "panelSpace.pythonPath": {
           "type": "string",
           "default": "",
-          "description": "Python executable with DuckDB for Parquet scans and Matplotlib/Seaborn for figures. Empty uses python on PATH.",
+          "description": "Full path to the Python executable. Parquet requires DuckDB. Figures require Matplotlib and Seaborn. Leave empty to use PANEL_SPACE_PYTHON, or python on PATH.",
           "scope": "machine"
         }
       }
@@ -91,7 +91,8 @@
     "package:check": "node scripts/package-check.mjs",
     "vscode:prepublish": "node scripts/package-check.mjs",
     "package:vsix": "vsce package --no-dependencies",
-    "test:flat": "node --test tests/flat.test.mjs"
+    "test:flat": "node --test tests/flat.test.mjs",
+    "docs:check": "node scripts/docs-check.mjs"
   },
   "license": "MIT",
   "preview": true,
@@ -145,19 +146,31 @@
     "LICENSE",
     "THIRD_PARTY.md",
     "CHANGELOG.md",
-    "LAZY_FILES.md",
-    "RELEASE.md",
-    "IMPORT_DETECTION.md",
-    "MULTITABLE_CONNECTIONS.md",
-    "INTERACTION_DESIGN.md",
-    "STRESS_TEST.md",
-    "PARQUET_VALIDATION.md",
+    "docs/LAZY_FILES.md",
+    "docs/RELEASE.md",
+    "docs/IMPORT_DETECTION.md",
+    "docs/MULTITABLE_CONNECTIONS.md",
+    "docs/INTERACTION_DESIGN.md",
+    "docs/STRESS_TEST.md",
+    "docs/PARQUET_VALIDATION.md",
     "web/toolbar.mjs",
-    "ROADMAP.md",
+    "docs/ROADMAP.md",
     "scripts/lazy_queries.py",
     "scripts/tableorbit.mjs",
     "scripts/serve.cjs",
-    "AGENT_CLI.md"
+    "docs/AGENT_CLI.md",
+    "docs/INSTALL.md",
+    "docs/QUICK_START.md",
+    "docs/USER_GUIDE.md",
+    "docs/WRITING.md",
+    "docs/VSIX_LOCAL_TEST.md",
+    "docs/stress-results-2026-10-08.json",
+    "docs/images/vscode-reader.jpg",
+    "docs/images/vscode-series.jpg",
+    "docs/images/vscode-figure.jpg",
+    "docs/images/vscode-install.jpg",
+    "docs/images/vscode-explorer.jpg",
+    "docs/images/README.md"
   ],
   "bin": {
     "tableorbit": "./scripts/tableorbit.mjs"

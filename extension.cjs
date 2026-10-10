@@ -12,7 +12,7 @@ function activate(context) {
     if((await vscode.workspace.fs.stat(uri)).type & vscode.FileType.Directory)return {parquet:uri.fsPath};
     if(path.extname(uri.fsPath).toLowerCase()==='.parquet') return {parquet:uri.fsPath};
     const stat = await vscode.workspace.fs.stat(uri);
-    if (stat.size > 10_000_000) throw new Error('TableOrbit supports data files up to 10 MB.');
+    if (stat.size > 10_000_000) throw new Error('Text imports are limited to 10 MB. Use Scan Parquet for a larger Parquet source.');
     return {text:Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8'),name:path.basename(uri.fsPath)};
   }
   async function chooseCsv() {
@@ -70,10 +70,11 @@ function activate(context) {
   context.subscriptions.push(vscode.commands.registerCommand('panelSpace.agentCLI',()=>{
     const quote=value=>"'"+value.replace(/'/g,"'\"'\"'")+"'";
     const output=vscode.window.createOutputChannel('TableOrbit CLI');context.subscriptions.push(output);
-    output.appendLine('Run in a terminal or agent process. Send one JSON object per line.');
+    output.appendLine('Run the command below in Bash, or pass its executable and arguments to your agent. Node.js must be on PATH.');
     const python=vscode.workspace.getConfiguration('panelSpace').get('pythonPath') || process.env.PANEL_SPACE_PYTHON;
     output.appendLine((python?'PANEL_SPACE_PYTHON='+quote(python)+' ':'')+'node '+quote(path.join(context.extensionPath,'scripts','tableorbit.mjs'))+' agent');
-    output.appendLine(JSON.stringify({requestId:1,spec:{action:'inspect',path:'/absolute/path/to/data.parquet'}}));
+    output.appendLine('Then send one JSON request per line. This request lists the available actions:');
+    output.appendLine(JSON.stringify({requestId:1,spec:{action:'capabilities'}}));
     output.show();
   }));
   context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openDemo' ,()=>open()));

@@ -37,7 +37,7 @@ Memory sampling covered Node and its active children at approximately 10 ms inte
 
 ### Checks and remaining limits
 
-Fifteen focused engine checks passed, including hand-calculated statistics, missing observations versus null values, zero values, duplicate-key rejection, typed dates, exact integer transport and floating-point key display. The worker lifecycle test passed reuse, recoverable errors, cancellation and replacement. A mocked VS Code API test covers the read-only editor and Explorer/CLI command registration. Browser checks exercised the synthetic fixture, direct summaries and rendered figures. Native VSIX installation remains untested.
+Fifteen focused engine checks passed, including hand-calculated statistics, missing observations versus null values, zero values, duplicate-key rejection, typed dates, exact integer transport and floating-point key display. The worker lifecycle test passed reuse, recoverable errors, cancellation and replacement. A mocked VS Code API test covers the read-only editor and Explorer/CLI command registration. Browser checks exercised the synthetic fixture, direct summaries and rendered figures. Native installation was tested later. See [VSIX_LOCAL_TEST.md](VSIX_LOCAL_TEST.md).
 
 Accepted for these sources: direct bounded panel reads, complete filtered-source statistics and line/bar figure inputs. Lazy joins, remote connections, arbitrary time-label parsing, full-source statistics on A and browser/extension-host memory are outside this measurement. Initial key audits, exact quantiles on larger selections and deep entity offsets can still exceed the query's memory/time budget.
 

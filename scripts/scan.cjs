@@ -37,7 +37,7 @@ function createScanner(python = process.env.PANEL_SPACE_PYTHON || 'python') {
       idleTimer=setTimeout(()=>stop('Worker idle.'),60_000);idleTimer.unref();
     });
     child.stderr.resume();
-    child.on('error',()=>{if(worker===child)stop('Cannot start Python. Configure Python with DuckDB.');});
+    child.on('error',()=>{if(worker===child)stop('Cannot start Python. Set panelSpace.pythonPath in VS Code, or PANEL_SPACE_PYTHON for the CLI. Use a Python executable with DuckDB installed.');});
     child.on('close',()=>{
       if(worker===child)stop('Query worker stopped. Check the configured Python environment.');
       // Only this worker's newly created scratch directory is eligible for cleanup.

@@ -1,6 +1,6 @@
 // Deliberate, bounded real-data stress run. Not part of the routine unit-test command.
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { parseFile, importTable } from '../web/import.mjs';
 import { numericColumns } from '../web/data.mjs';
@@ -47,5 +47,6 @@ for (const name of ['diamonds','nlswork','co2']) {
   results.push({dataset:name,records:panel.rowCount,entities:panel.entities.length,periods:panel.times.length,variables:panel.variables.length,missingCells:panel.missingValues,absentRecords:panel.absentRecords,
     importMs:Math.round(imported-start),summaryMs:Math.round(summarized-imported),heapMB:Math.round(process.memoryUsage().heapUsed/1024/1024)});
 }
-writeFileSync(new URL('./fixtures/stress-results.json',import.meta.url),JSON.stringify({runtime:process.version,results},null,2)+'\n');
+mkdirSync(new URL('./output/',import.meta.url),{recursive:true});
+writeFileSync(new URL('./output/stress-results.json',import.meta.url),JSON.stringify({runtime:process.version,results},null,2)+'\n');
 console.table(results);

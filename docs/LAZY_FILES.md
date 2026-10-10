@@ -25,9 +25,9 @@ The development CLI can preselect the file:
 node scripts/tableorbit.mjs open "C:/path/to/panel.parquet" --port 4318
 ```
 
-Replace the example path with an existing file and visit the printed URL. `PANEL_SPACE_PYTHON` selects an existing Python with DuckDB. The engine is integrated through the local host but its Python dependency is not bundled into the extension. This machine has DuckDB 1.5.3. No package was installed for this change.
+Replace the example path with an existing file and visit the printed URL. `PANEL_SPACE_PYTHON` selects an existing Python with DuckDB. The engine is integrated through the local host but its Python dependency is not bundled into the extension. This machine has DuckDB 1.5.3. See [Python setup](INSTALL.md#set-up-python-for-parquet-and-figures) for dependencies.
 
-In VS Code, Parquet is registered with a read-only custom editor. Explorer opens it in TableOrbit by default unless another editor association takes precedence. CSV/TSV/JSON files have an Explore Data context command. Open Parquet Dataset Folder passes a directory to the same engine. The provider contract is tested with a mocked VS Code API; native extension-host installation remains unverified. Agents use the same query implementation through [AGENT_CLI.md](AGENT_CLI.md).
+In VS Code, Parquet is registered with a read-only custom editor. Explorer opens it in TableOrbit by default unless another editor association takes precedence. CSV/TSV/JSON files have an Explore Data context command. Open Parquet Dataset Folder passes a directory to the same engine. The provider contract is tested with a mocked VS Code API; native Windows installation passed. See [the installation test](VSIX_LOCAL_TEST.md). Agents use the same query implementation through [AGENT_CLI.md](AGENT_CLI.md).
 
 ## Semantics and limits
 
@@ -55,7 +55,7 @@ The original raw-scan checks on a generated 4,000-row fixture cover: footer coun
 
 The original small-fixture checks are now supplemented by the real-data validation in [PARQUET_VALIDATION.md](PARQUET_VALIDATION.md). No large synthetic file was generated.
 
-Browser checks on another 4,000-row synthetic panel verified the first page, rows 3991–4000 with Next disabled, a year filter returning 20 records, projection to three columns, English/Chinese controls and extraction into a 20-entity, one-period panel. Unsafe integer IDs remained unchecked as measures. Host checks verified authenticated metadata/last-page responses, rejection of invalid Origin/session tokens, cancellation of an active worker and a successful query after cancellation. CLI help and JavaScript syntax checks passed. The native VS Code host still needs a separate installation check.
+Browser checks on another 4,000-row synthetic panel verified the first page, rows 3991–4000 with Next disabled, a year filter returning 20 records, projection to three columns, English/Chinese controls and extraction into a 20-entity, one-period panel. Unsafe integer IDs remained unchecked as measures. Host checks verified authenticated metadata/last-page responses, rejection of invalid Origin/session tokens, cancellation of an active worker and a successful query after cancellation. CLI help and JavaScript syntax checks passed. The later [Windows installation test](VSIX_LOCAL_TEST.md) covers the native host.
 
 The 2026-10-10 update adds focused tests for direct panel slices, summary scope, missing observations, zero values, duplicate keys, date figures, unsafe integers and floating-point key transport. Worker tests cover reuse, errors, cancellation and replacement. Real-data results and their scope are recorded in PARQUET_VALIDATION.md.
 

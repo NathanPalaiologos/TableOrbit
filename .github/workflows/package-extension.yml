@@ -11,6 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm run docs:check
       - run: npm run package:check
       - run: node --test tests/flat.test.mjs tests/reader.test.mjs tests/interaction.test.mjs
       - run: npm install --no-save --package-lock=false @vscode/vsce@4.0.0
