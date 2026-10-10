@@ -8,6 +8,8 @@ const { createScanner } = require('./scripts/scan.cjs');
 function activate(context) {
   const root = path.join(context.extensionPath, 'web');
   async function readCsv(uri) {
+    if(uri.scheme!=='file')throw new Error('TableOrbit needs a filesystem path on the extension host.');
+    if((await vscode.workspace.fs.stat(uri)).type & vscode.FileType.Directory)return {parquet:uri.fsPath};
     if(path.extname(uri.fsPath).toLowerCase()==='.parquet') return {parquet:uri.fsPath};
     const stat = await vscode.workspace.fs.stat(uri);
     if (stat.size > 10_000_000) throw new Error('TableOrbit supports data files up to 10 MB.');
@@ -18,11 +20,12 @@ function activate(context) {
     if (!files?.length) return null;
     return readCsv(files[0]);
   }
-  async function open(initial) {
+  async function open(initial, existingPanel) {
     const scanner=createScanner(vscode.workspace.getConfiguration('panelSpace').get('pythonPath') || process.env.PANEL_SPACE_PYTHON || 'python');
-    const panel = vscode.window.createWebviewPanel('panelSpace', 'TableOrbit', vscode.ViewColumn.One, {
+    const panel = existingPanel || vscode.window.createWebviewPanel('panelSpace', 'TableOrbit', vscode.ViewColumn.One, {
       enableScripts: true, localResourceRoots: [vscode.Uri.file(root)], retainContextWhenHidden: true
     });
+    panel.webview.options={enableScripts:true,localResourceRoots:[vscode.Uri.file(root)]};
     const nonce = crypto.randomBytes(18).toString('base64');
     const base = panel.webview.asWebviewUri(vscode.Uri.file(root)).toString() + '/';
     panel.onDidDispose(()=>scanner.close());
@@ -60,12 +63,29 @@ function activate(context) {
       } catch(error){vscode.window.showErrorMessage(error.message);}
     },undefined,context.subscriptions);
   }
-  context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openDemo',()=>open()));
+  context.subscriptions.push(vscode.window.registerCustomEditorProvider('tableorbit.data', {
+    async openCustomDocument(uri) { return {uri,dispose(){}}; },
+    async resolveCustomEditor(document,panel) { await open(await readCsv(document.uri),panel); }
+  },{webviewOptions:{retainContextWhenHidden:true},supportsMultipleEditorsPerDocument:false}));
+  context.subscriptions.push(vscode.commands.registerCommand('panelSpace.agentCLI',()=>{
+    const quote=value=>"'"+value.replace(/'/g,"'\"'\"'")+"'";
+    const output=vscode.window.createOutputChannel('TableOrbit CLI');context.subscriptions.push(output);
+    output.appendLine('Run in a terminal or agent process. Send one JSON object per line.');
+    const python=vscode.workspace.getConfiguration('panelSpace').get('pythonPath') || process.env.PANEL_SPACE_PYTHON;
+    output.appendLine((python?'PANEL_SPACE_PYTHON='+quote(python)+' ':'')+'node '+quote(path.join(context.extensionPath,'scripts','tableorbit.mjs'))+' agent');
+    output.appendLine(JSON.stringify({requestId:1,spec:{action:'inspect',path:'/absolute/path/to/data.parquet'}}));
+    output.show();
+  }));
+  context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openDemo' ,()=>open()));
+  context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openParquetFolder',async uri=>{
+    try {
+      if(!uri){const folders=await vscode.window.showOpenDialog({canSelectMany:false,canSelectFiles:false,canSelectFolders:true});uri=folders?.[0];}
+      if(uri)await open(await readCsv(uri));
+    }catch(error){vscode.window.showErrorMessage(error.message);}
+  }));
   context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openCsv',async uri=>{
     try {const csv=uri?await readCsv(uri):await chooseCsv();if(csv)await open(csv);}
     catch(error){vscode.window.showErrorMessage(error.message);}
   }));
-  // Development launches are explicitly requested; installed extensions open by command.
-  if(context.extensionMode === vscode.ExtensionMode.Development) open();
 }
 module.exports = { activate };

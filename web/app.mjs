@@ -1,3 +1,5 @@
+import {flatRecords,flatColumns,flatValues} from './flat.mjs';
+import {setupToolbar} from './toolbar.mjs';
 import { parseCSV, buildPanel, numericColumns, cell, columnTypes } from './data.mjs';
 import { faceIndex, isCrossSection, layerValues, moveLayer, coordinateAt, variableIndexes } from './reader.mjs';
 import { METHODS, aggregateAt, viewRows, summaryTable, SUMMARY_COLUMNS } from './analysis.mjs';
@@ -14,7 +16,9 @@ import { setupScanner } from './scanner.mjs';
 const $ = id => document.getElementById(id);
 const escapeHTML = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
+setupToolbar({vscode});
 const state = { turn:0, entity:0, time:0, variable:0, aggregation:'none', included:[] };
+let flatMode=false, flatCell={row:0,column:0};
 let summaryMode = false, dataTurn = 0, rowPage = 0, columnPage = 0, datasetId = 'grunfeld', importSerial = 0;
 const sessions = new Map();
 let scopeDraft = new Set();
@@ -23,7 +27,7 @@ let rotatingNow = false, lastRepeatAt = 0;
 let importSuggestion = null, mappingEdited = false, rowIdOptionValue = '';
 let importTypes = [];
 const faces = [...document.querySelectorAll('.face')];
-const figureUI = setupFigures({getContext:() => ({panel, state, name:currentName}), vscode});
+const figureUI = setupFigures({getContext:() => ({panel, state:flatMode?{...state,aggregation:'none'}:state, name:currentName}), vscode});
 const composerUI = setupComposer({openResult:prepareImport});
 const scannerUI = setupScanner({vscode,openResult:prepareImport});
 try { setLanguage(localStorage.getItem('panel-space-language')); } catch { /* storage is optional */ }
@@ -59,7 +63,7 @@ function installPanel(next, name, id = `import-${++importSerial}`) {
   panel = next;
   currentName = name;
   datasetId = id;
-  summaryMode = false; dataTurn = 0; rowPage = 0; columnPage = 0;
+  summaryMode = false; flatMode=false; flatCell={row:0,column:0}; dataTurn = 0; rowPage = 0; columnPage = 0;
   $('summary-scope').value = 'all';
   sessions.set(id, {panel:next,name});
   if (![...$('example').options].some(option => option.value === id)) $('example').add(new Option(name,id));
@@ -95,13 +99,35 @@ function tableHTML(cross) {
   }).join('');
   return `<table role="grid" class="${cross ? 'cross' : 'series'}" aria-label="${t(cross ? 'cross' : 'series')}"><thead><tr><th scope="col">${escapeHTML(panel.entityLabelKey ? t(panel.entityLabelKey) : panel.entityColumn)} / ${cross ? t('variables') : escapeHTML(panel.timeColumn)}</th>${columns.slice(start,start+PAGE_COLUMNS).map(column => `<th scope="col">${escapeHTML(column)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
 }
+function renderFlat(records) {
+  const columns=flatColumns(panel,state),start=columnPage*PAGE_COLUMNS;
+  flatCell.row=Math.max(0,Math.min(flatCell.row,records.length-1));
+  flatCell.column=Math.min(flatCell.column,columns.length-1);
+  $('flat-table').innerHTML=`<table role="grid" aria-label="${t('flatView')}"><thead><tr>${columns.slice(start,start+PAGE_COLUMNS).map(name=>`<th>${escapeHTML(name)}</th>`).join('')}</tr></thead><tbody>${records.slice(rowPage*PAGE_ROWS,(rowPage+1)*PAGE_ROWS).map((record,index)=>`<tr>${flatValues(panel,state,record).slice(start,start+PAGE_COLUMNS).map((value,column)=>{
+    const selected=flatCell.row===index+rowPage*PAGE_ROWS && flatCell.column===column+start;
+    return `<td role="gridcell" tabindex="-1" data-flat-row="${index+rowPage*PAGE_ROWS}" data-flat-column="${column+start}" aria-selected="${selected}" class="${selected?'selected':''}">${escapeHTML(value===null?t('missing'):String(value))}</td>`;
+  }).join('')}</tr>`).join('')}</tbody></table>`;
+}
+function selectFlat(row,column) {
+  const records=flatRecords(panel,state),columns=flatColumns(panel,state);
+  flatCell={row:Math.max(0,Math.min(row,records.length-1)),column:Math.max(0,Math.min(column,columns.length-1))};
+  const record=records[flatCell.row];
+  if(record){state.entity=panel.entities.indexOf(record.entity);state.time=panel.times.indexOf(record.time);
+    const variable=panel.variables.indexOf(columns[flatCell.column]);if(variable>=0)state.variable=variable;}
+  rowPage=Math.floor(flatCell.row/PAGE_ROWS);columnPage=Math.floor(flatCell.column/PAGE_COLUMNS);
+  render();
+  const td=$('flat-table').querySelector('td.selected');td?.focus({preventScroll:true});td?.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+$('flat-table').addEventListener('click',event=>{
+  const td=event.target.closest('td[data-flat-row]');if(td)selectFlat(Number(td.dataset.flatRow),Number(td.dataset.flatColumn));
+});
 function renderSummary() {
   const rows = summaryTable(panel,state,$('summary-scope').value);
   const format = value => value === null ? t('missing') : Number.isInteger(value) ? String(value) : String(Number(value.toPrecision(7)));
   $('summary-table').innerHTML = `<table aria-label="${t('summary')}"><thead><tr><th>${t('variables')}</th>${SUMMARY_COLUMNS.map(key => `<th>${t(key)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr><th>${escapeHTML(row.variable)}</th>${SUMMARY_COLUMNS.map(key => `<td title="${row[key] ?? ''}">${format(row[key])}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 function updateKeyboardHint() {
-  const key = summaryMode ? ($('summary-scope').value === 'all' ? 'allPeriods' : 'currentPeriod')
+  const key = flatMode ? 'flatKeys' : summaryMode ? ($('summary-scope').value === 'all' ? 'allPeriods' : 'currentPeriod')
     : !$('reader').contains(document.activeElement) ? 'activateReader'
     : panel.kind === 'cross-section' ? 'crossKeys' : 'keys';
   const keys = key === 'keys' ? ['keyLayers','keyRotate','keyCells'] : key === 'crossKeys' ? ['cross','keyCells'] : [key];
@@ -113,28 +139,31 @@ function render() {
   const key = cross ? 'time' : 'variable';
   const values = layerValues(panel, state);
   const position = cross ? state.time : variableIndexes(panel,state).indexOf(state.variable);
-  document.querySelector('.layer-controls').hidden = panel.kind === 'cross-section' || (summaryMode && $('summary-scope').value === 'all');
-  document.querySelector('.face-controls').hidden = summaryMode;
-  document.querySelector('.navigation').hidden = summaryMode && panel.kind === 'cross-section';
+  document.querySelector('.layer-controls').hidden = flatMode || panel.kind === 'cross-section' || (summaryMode && $('summary-scope').value === 'all');
+  document.querySelector('.face-controls').hidden = summaryMode || flatMode;
+  document.querySelector('.navigation').hidden = flatMode || (summaryMode && panel.kind === 'cross-section');
   $('summary-scope-control').hidden = !summaryMode || panel.kind === 'cross-section';
   $('summary-note').hidden = !summaryMode;
   $('summary-table').hidden = !summaryMode;
-  $('cube').hidden = summaryMode;
-  $('aggregation-control').hidden = summaryMode;
+  $('cube').hidden = summaryMode || flatMode;
+  $('flat-table').hidden=!flatMode;
+  $('toggle-flat').textContent=t(flatMode?'orbitView':'flatView');
+  $('toggle-flat').setAttribute('aria-pressed',String(flatMode));
+  $('aggregation-control').hidden = summaryMode || flatMode;
   $('toggle-summary').textContent = t(summaryMode ? 'dataView' : 'summary');
   $('toggle-summary').setAttribute('aria-pressed',String(summaryMode));
   $('open-figure').disabled = summaryMode;
-  document.querySelector('.selection-bar').hidden = summaryMode;
+  document.querySelector('.selection-bar').hidden = summaryMode || flatMode;
   $('variable-count').textContent = `${state.visibleVariables.length} / ${panel.variables.length}`;
   updateKeyboardHint();
-  $('reader').setAttribute('aria-label', t(summaryMode ? 'summary' : panel.kind === 'cross-section' ? 'crossKeys' : 'reader'));
+  $('reader').setAttribute('aria-label', t(flatMode?'flatKeys':summaryMode ? 'summary' : panel.kind === 'cross-section' ? 'crossKeys' : 'reader'));
   for (const id of ['rotate-left','rotate-right']) $(id).disabled = panel.kind === 'cross-section';
   $('view-name').textContent = t(cross ? 'cross' : 'series');
   $('layer-label').textContent = cross ? panel.timeColumn : t('variables');
   $('aggregation').value = state.aggregation;
   $('scope-count').textContent = `${state.included.length} / ${panel.entities.length}`;
-  $('aggregation-note').textContent = state.aggregation === 'none' || summaryMode ? '' : t('aggregateNote');
-  textFields($('dataset-meta'),[`${panel.rowCount} ${t('records')}`,`${panel.entities.length} ${t('entities')}`,...(panel.kind === 'cross-section' ? [] : [`${panel.times.length} ${t('periods')}`]),`${panel.variables.length} ${t('variables')}`]);
+  $('aggregation-note').textContent = state.aggregation === 'none' || summaryMode || flatMode ? '' : t('aggregateNote');
+  textFields($('dataset-meta'),[`${panel.rowCount} ${t('records')}`,`${state.included.length}/${panel.entities.length} ${t('entities')}`,...(panel.kind === 'cross-section' ? [] : [`${panel.times.length} ${t('periods')}`]),`${panel.variables.length} ${t('variables')}`]);
   const labels = values.map(value => cross ? timeLabel(panel,value) : value);
   if ($('layer-select').options.length !== labels.length || labels.some((label,index) => $('layer-select').options[index]?.text !== String(label))) {
     $('layer-select').replaceChildren(...labels.map((value,index) => new Option(String(value),String(index))));
@@ -143,9 +172,10 @@ function render() {
   $('layer-count').textContent = `${position + 1} / ${values.length}`;
   $('previous-layer').disabled = position === 0;
   $('next-layer').disabled = position === values.length - 1;
-  const totalRows = state.aggregation === 'none' ? state.included.length : 1;
-  const totalColumns = cross ? state.visibleVariables.length : panel.times.length;
-  rowPage = Math.min(rowPage,Math.ceil(totalRows/PAGE_ROWS)-1);
+  const records=flatMode?flatRecords(panel,state):null;
+  const totalRows = flatMode?records.length:state.aggregation === 'none' ? state.included.length : 1;
+  const totalColumns = flatMode?flatColumns(panel,state).length:cross ? state.visibleVariables.length : panel.times.length;
+  rowPage = Math.max(0,Math.min(rowPage,Math.ceil(totalRows/PAGE_ROWS)-1));
   columnPage = Math.min(columnPage,Math.ceil(totalColumns/PAGE_COLUMNS)-1);
   $('table-pages').hidden = summaryMode || (totalRows <= PAGE_ROWS && totalColumns <= PAGE_COLUMNS);
   for (const [axis,page,total,size] of [['rows',rowPage,totalRows,PAGE_ROWS],['cols',columnPage,totalColumns,PAGE_COLUMNS]]) {
@@ -154,6 +184,7 @@ function render() {
     $(`${axis}-next`).disabled = (page+1)*size >= total;
   }
   if (summaryMode) { renderSummary(); return; }
+  if (flatMode) { renderFlat(records); return; }
   faces.forEach((face, index) => {
     const left = face.scrollLeft, top = face.scrollTop;
     // At most two bounded pages during a rotation, never four complete datasets.
@@ -237,6 +268,13 @@ function navigate(key, fromKeyboard = false) {
   if (fromKeyboard) (selectedHadFocus ? faces[faceIndex(state.turn)].querySelector('td.selected') ?? $('reader') : $('reader')).focus({preventScroll:true});
 }
 $('reader').addEventListener('keydown', event => {
+  if(flatMode){
+    if(!event.key.startsWith('Arrow') || event.defaultPrevented || event.keyCode===229 || event.ctrlKey || event.altKey || event.metaKey || event.isComposing || document.querySelector('dialog[open]') || event.target.closest('input,select,textarea,button,[contenteditable]'))return;
+    event.preventDefault();event.stopPropagation();
+    if(!acceptsRepeat('cell',event,performance.now()-lastRepeatAt))return;
+    lastRepeatAt=performance.now();
+    selectFlat(flatCell.row+(event.key==='ArrowDown'?1:event.key==='ArrowUp'?-1:0),flatCell.column+(event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0));return;
+  }
   const command = readerCommand(event,{nativeControl:!!event.target.closest('input,select,textarea,button,[contenteditable]:not([contenteditable="false"])'),modal:!!document.querySelector('dialog[open]'),summary:summaryMode,currentPeriod:$('summary-scope').value === 'current',crossOnly:panel?.kind === 'cross-section'});
   if (!command || !panel) return;
   event.preventDefault(); event.stopPropagation();
@@ -293,11 +331,13 @@ new ResizeObserver(entries => {
   $('cube').style.setProperty('--depth', `${entries[0].contentRect.width / 2}px`);
 }).observe($('reader'));
 for (const [id,axis,step] of [['rows-prev','row',-1],['rows-next','row',1],['cols-prev','column',-1],['cols-next','column',1]]) $(id).addEventListener('click', () => {
+  if(flatMode){selectFlat(axis==='row'?(rowPage+step)*PAGE_ROWS:flatCell.row,axis==='column'?(columnPage+step)*PAGE_COLUMNS:flatCell.column);return;}
   if (axis === 'row') { rowPage += step; if (state.aggregation === 'none') state.entity = state.included[rowPage*PAGE_ROWS]; }
   else { columnPage += step; Object.assign(state,coordinateAt(panel,state,columnPage*PAGE_COLUMNS)); }
   render();
 });
 $('toggle-summary').addEventListener('click', () => {
+  if(flatMode){flatMode=false;rowPage=0;columnPage=0;}
   summaryMode = !summaryMode;
   finishRotation(); stopLayerMotion();
   if (summaryMode) { dataTurn = state.turn; state.turn = 0; }
@@ -305,6 +345,14 @@ $('toggle-summary').addEventListener('click', () => {
   render();
 });
 $('summary-scope').addEventListener('change',render);
+$('toggle-flat').addEventListener('click',()=>{
+  finishRotation();stopLayerMotion();
+  if(summaryMode){summaryMode=false;state.turn=dataTurn;}
+  flatMode=!flatMode;
+  if(flatMode){const records=flatRecords(panel,state);flatCell.row=Math.max(0,records.findIndex(r=>r.entity===panel.entities[state.entity] && r.time===panel.times[state.time]));flatCell.column=0;rowPage=Math.floor(flatCell.row/PAGE_ROWS);columnPage=0;}
+  else{rowPage=Math.floor(Math.max(0,state.included.indexOf(state.entity))/PAGE_ROWS);columnPage=Math.floor((isCrossSection(state)?state.visibleVariables.indexOf(state.variable):state.time)/PAGE_COLUMNS);}
+  render();$('reader').focus({preventScroll:true});
+});
 
 function prepareImport(text, name, defaults = {}) {
   try {
@@ -512,7 +560,7 @@ $('export-button').addEventListener('click', () => {
   const columns = cross ? state.visibleVariables.map(i => panel.variables[i]) : panel.times.map(time => timeLabel(panel, time));
   const aggregated = state.aggregation !== 'none';
   const headers = aggregated ? columns.flatMap(column => [column, `${column}_n`]) : columns;
-  const rows = summaryMode ? [['variable',...SUMMARY_COLUMNS],...summaryTable(panel,state,$('summary-scope').value).map(row => [row.variable,...SUMMARY_COLUMNS.map(key => row[key])])] : [[panel.entityColumn, ...headers], ...viewRows(panel, state, cross).map(row => [
+  const rows = flatMode?[flatColumns(panel,state),...flatRecords(panel,state).map(r=>flatValues(panel,state,r))]:summaryMode ? [['variable',...SUMMARY_COLUMNS],...summaryTable(panel,state,$('summary-scope').value).map(row => [row.variable,...SUMMARY_COLUMNS.map(key => row[key])])] : [[panel.entityColumn, ...headers], ...viewRows(panel, state, cross).map(row => [
     row.entityIndex === null ? state.aggregation : panel.entities[row.entityIndex],
     ...row.cells.flatMap(data => aggregated ? [data.value, data.n] : [data.value])
   ])];
@@ -522,8 +570,8 @@ $('export-button').addEventListener('click', () => {
     return '"' + text.replaceAll('"','""') + '"';
   };
   const text = '\uFEFF' + rows.map(row => row.map(quote).join(',')).join('\r\n');
-  const layer = summaryMode ? `summary-${$('summary-scope').value}${$('summary-scope').value === 'current' ? '-'+timeLabel(panel,panel.times[state.time]) : ''}` : panel.kind === 'cross-section' ? 'cross-section' : cross ? timeLabel(panel, panel.times[state.time]) : panel.variables[state.variable];
-  const name = `${currentName.replace(/\.[^.]+$/, '')}-${layer}-${summaryMode ? 'raw' : state.aggregation}.csv`.replace(/[<>:"/\\|?*]/g, '_');
+  const layer = flatMode?'flat':summaryMode ? `summary-${$('summary-scope').value}${$('summary-scope').value === 'current' ? '-'+timeLabel(panel,panel.times[state.time]) : ''}` : panel.kind === 'cross-section' ? 'cross-section' : cross ? timeLabel(panel, panel.times[state.time]) : panel.variables[state.variable];
+  const name = `${currentName.replace(/\.[^.]+$/, '')}-${layer}-${summaryMode || flatMode ? 'raw' : state.aggregation}.csv`.replace(/[<>:"/\\|?*]/g, '_');
   if (vscode) { vscode.postMessage({type:'export', text, name}); return; }
   const url = URL.createObjectURL(new Blob([text], {type:'text/csv;charset=utf-8'}));
   const a = document.createElement('a');

@@ -2,52 +2,75 @@ const {spawn} = require('node:child_process');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const fsSync = require('node:fs');
+const os = require('node:os');
 
 function createScanner(python = process.env.PANEL_SPACE_PYTHON || 'python') {
   const files = new Map();
-  let active = null;
+  let worker = null, active = null, idleTimer = null;
+  function stop(reason) {
+    clearTimeout(idleTimer);
+    const old = worker; worker = null;
+    old?.kill();
+    if (active) { const job=active; active=null; clearTimeout(job.timer); job.reject(new Error(reason)); }
+  }
+  function start() {
+    if(worker)return;
+    const tempRoot=path.resolve(os.tmpdir());
+    const temporary=fsSync.mkdtempSync(path.join(tempRoot,'tableorbit-worker-'));
+    const child=spawn(python,[path.join(__dirname,'scan_file.py'),'--worker'],{
+      windowsHide:true,stdio:['pipe','pipe','pipe'],env:{...process.env,PYTHONIOENCODING:'utf-8',TABLEORBIT_WORKER_TEMP:temporary}});
+    worker=child;
+    let output='';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data',chunk=>{
+      if(worker!==child)return;
+      output+=chunk;
+      if(Buffer.byteLength(output)>12_000_000){stop('File query response is too large.');return;}
+      const end=output.indexOf('\n');
+      if(end<0)return;
+      const line=output.slice(0,end);output=output.slice(end+1);
+      const job=active;if(!job)return;
+      active=null;clearTimeout(job.timer);
+      try{const result=JSON.parse(line);if(result.error)job.reject(new Error(result.error));else job.resolve(result);}
+      catch{job.reject(new Error('Invalid worker response.'));stop('Invalid worker response.');}
+      idleTimer=setTimeout(()=>stop('Worker idle.'),60_000);idleTimer.unref();
+    });
+    child.stderr.resume();
+    child.on('error',()=>{if(worker===child)stop('Cannot start Python. Configure Python with DuckDB.');});
+    child.on('close',()=>{
+      if(worker===child)stop('Query worker stopped. Check the configured Python environment.');
+      // Only this worker's newly created scratch directory is eligible for cleanup.
+      if(path.dirname(path.resolve(temporary))===tempRoot && path.basename(temporary).startsWith('tableorbit-worker-'))
+        fs.rm(temporary,{recursive:true,force:true,maxRetries:3,retryDelay:100}).catch(()=>{});
+    });
+    child.stdin.on('error',()=>{if(worker===child)stop('Query worker input closed.');});
+  }
   function run(request) {
-    if (active) return Promise.reject(new Error('A file query is running. Wait or cancel it first.'));
+    if(active)return Promise.reject(new Error('A file query is running. Wait or cancel it first.'));
+    clearTimeout(idleTimer);start();
     return new Promise((resolve,reject)=>{
-      const child=spawn(python,[path.join(__dirname,'scan_file.py')],{windowsHide:true,
-        stdio:['pipe','pipe','pipe'],env:{...process.env,PYTHONIOENCODING:'utf-8'}});
-      active=child; let output='', errors='', settled=false;
-      const finish=(error,result)=>{
-        if (settled) return; settled=true; clearTimeout(timer); active=null;
-        if (error) reject(error); else resolve(result);
-      };
-      child.cancel=()=>{child.kill(); finish(new Error('File query cancelled.'));};
-      const timer=setTimeout(()=>{child.kill(); finish(new Error('File query exceeded 30 seconds. Narrow the filters or retry.'));},30000);
-      child.on('error',()=>finish(new Error('Cannot start Python. Configure a Python environment with DuckDB.')));
-      child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
-      child.stdout.on('data',chunk=>{output+=chunk; if(Buffer.byteLength(output)>12_000_000){child.kill();finish(new Error('File query response is too large.'));}});
-      child.stderr.on('data',chunk=>{if(errors.length<2000)errors+=chunk;});
-      child.on('close',code=>{
-        if(settled)return;
-        try {const result=JSON.parse(output); finish(code || result.error ? new Error(result.error || 'File query failed.') : null,result);}
-        catch {finish(new Error(errors.includes('duckdb') ? 'DuckDB is unavailable in the configured Python environment.' : 'File query failed.'));}
-      });
-      child.stdin.on('error',()=>{}); child.stdin.end(JSON.stringify(request));
+      active={resolve,reject,timer:setTimeout(()=>stop('File query exceeded 30 seconds. Narrow the selection.'),30_000)};
+      worker.stdin.write(JSON.stringify(request)+'\n');
     });
   }
   async function request(input) {
-    if(!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid file request.');
-    if (input.action === 'cancel') {active?.cancel(); return {cancelled:true};}
-    if (input.action === 'inspect') {
-      if(typeof input.path !== 'string' || !path.isAbsolute(input.path)) throw new Error('Enter an absolute local Parquet path.');
-      const file=await fs.realpath(input.path), stat=await fs.stat(file);
-      if(!stat.isFile() || path.extname(file).toLowerCase()!=='.parquet') throw new Error('Choose a local .parquet file.');
+    if(!input || typeof input!=='object' || Array.isArray(input))throw new Error('Invalid file request.');
+    if(input.action==='cancel'){stop('File query cancelled.');return {cancelled:true};}
+    if(input.action==='inspect'){
+      if(typeof input.path!=='string' || !path.isAbsolute(input.path))throw new Error('Enter an absolute local Parquet path.');
+      const file=await fs.realpath(input.path);
       const metadata=await run({action:'inspect',path:file});
-      const id=crypto.randomUUID(); files.set(id,{path:file,size:stat.size,modified:stat.mtimeMs});
+      const {snapshot,...publicMetadata}=metadata;
+      const id=crypto.randomUUID();files.set(id,snapshot);
       while(files.size>4)files.delete(files.keys().next().value);
-      return {...metadata,id};
+      return {...publicMetadata,id};
     }
-    if(!['page','extract','explain'].includes(input.action))throw new Error('Unknown file action.');
-    const file=files.get(input.id); if(!file)throw new Error('File handle expired. Reopen the file.');
-    const stat=await fs.stat(file.path);
-    if(stat.size!==file.size || stat.mtimeMs!==file.modified)throw new Error('File changed. Reopen it.');
-    return run({...input,path:file.path});
+    if(!['page','extract','explain','axes','panel','summary','figure-data'].includes(input.action))throw new Error('Unknown file action.');
+    const snapshot=files.get(input.id);if(!snapshot)throw new Error('File handle expired. Reopen the file.');
+    const {action,columns,filters,timeRange,offset,entity,time,view,period,variable,timeOffset,aggregation,figureEntity,plot}=input;
+    return run({action,columns,filters,timeRange,offset,entity,time,view,period,variable,timeOffset,aggregation,figureEntity,plot,snapshot});
   }
-  return {request,close(){active?.cancel();files.clear();}};
+  return {request,close(){stop('Reader closed.');files.clear();}};
 }
 module.exports={createScanner};

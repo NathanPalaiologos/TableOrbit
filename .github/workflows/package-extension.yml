@@ -1,0 +1,22 @@
+name: Package preview extension
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run package:check
+      - run: node --test tests/flat.test.mjs tests/reader.test.mjs tests/interaction.test.mjs
+      - run: npm install --no-save --package-lock=false @vscode/vsce@4.0.0
+      - run: npx --no-install vsce ls --no-dependencies
+      - run: npm run package:vsix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tableorbit-preview-vsix
+          path: '*.vsix'

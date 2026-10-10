@@ -10,8 +10,13 @@
   <header class="toolbar">
     <div class="brand"><strong>TableOrbit</strong><button id="open-guide" data-i18n="guide" aria-haspopup="dialog">Quick guide</button></div><span id="filename" hidden></span>
     <label class="dataset-control"><span data-i18n="dataset">Dataset</span><select id="example" data-i18n-aria="dataset"><option value="grunfeld" data-i18n="exampleGrunfeld">Grunfeld (firms)</option><option value="gapminder" data-i18n="exampleGapminder">Gapminder (countries)</option><option value="nlswork" data-i18n="exampleNls">NLS work (individuals)</option></select></label>
-    <div class="dataset-actions"><button id="open-csv" data-i18n="openFile">Open file…</button><button id="open-scan" data-i18n="scanTitle" aria-haspopup="dialog">Scan Parquet</button><button id="open-paste" data-i18n="paste">Paste…</button><button id="open-compose" data-i18n="composeTitle" aria-haspopup="dialog">Combine tables</button><button id="open-figure" class="primary-action" data-i18n="figure" aria-haspopup="dialog">Create figure</button></div>
-    <select id="language" data-i18n-aria="language" aria-label="Language"><option value="en">English</option><option value="zh">中文</option></select>
+    <div class="toolbar-actions">
+      <button id="data-menu-trigger" popovertarget="data-menu" aria-haspopup="dialog" data-i18n="dataMenu">Data</button>
+      <button id="view-menu-trigger" popovertarget="view-menu" aria-haspopup="dialog" data-i18n="viewMenu">View</button>
+      <div class="selection-control"><button id="open-variables" data-i18n="chooseVariables">Variables…</button><span id="variable-count"></span></div>
+      <button id="settings-menu-trigger" popovertarget="settings-menu" aria-haspopup="dialog" data-i18n="settingsMenu">Settings</button>
+      <button id="open-figure" class="primary-action" data-i18n="figure" aria-haspopup="dialog">Create figure</button>
+    </div>
     <input id="file-input" type="file" accept=".csv,.tsv,.json,.jsonl,.ndjson" hidden>
   </header>
   <nav class="navigation" data-i18n-aria="navigation">
@@ -19,18 +24,30 @@
     <div class="layer-controls"><label id="layer-label" for="layer-select"></label><button id="previous-layer" data-i18n-aria="previous">↑</button><select id="layer-select" data-i18n-aria="layer"></select><button id="next-layer" data-i18n-aria="next">↓</button><span id="layer-count"></span></div>
     <label id="summary-scope-control" hidden><span data-i18n="summaryScope">Statistics over</span> <select id="summary-scope" data-i18n-aria="summaryScope"><option value="all" data-i18n="allPeriods">All periods</option><option value="current" data-i18n="currentPeriod">Current period</option></select></label>
   </nav>
-  <div class="analysis-toolbar">
-    <div class="selection-control"><button id="open-scope" data-i18n="scope">Entities…</button><span id="scope-count"></span></div>
-    <div class="selection-control"><button id="open-variables" data-i18n="chooseVariables">Variables…</button><span id="variable-count"></span></div>
-    <button id="toggle-summary" data-i18n="summary" aria-pressed="false">Summary statistics</button>
+  <div id="data-menu" popover class="toolbar-menu" role="dialog" data-i18n-aria="dataMenu">
+    <button id="open-csv" data-i18n="openFile">Open file…</button>
+    <button id="open-scan" data-i18n="scanTitle" aria-haspopup="dialog">Scan Parquet</button>
+    <button id="open-paste" data-i18n="paste">Paste…</button>
+    <button id="open-compose" data-i18n="composeTitle" aria-haspopup="dialog">Combine tables</button>
     <button id="export-button" data-i18n="exportFace">Export table</button>
-    <label id="aggregation-control"><span data-i18n="aggregation">Across entities</span> <select id="aggregation" data-i18n-aria="aggregation"></select></label>
+  </div>
+  <div id="view-menu" popover class="toolbar-menu" role="dialog" data-i18n-aria="viewMenu">
+    <div class="selection-control"><button id="open-scope" data-i18n="scope">Entities…</button><span id="scope-count"></span></div>
+    <button id="toggle-flat" data-i18n="flatView" aria-pressed="false">Flat table</button>
+    <button id="toggle-summary" data-i18n="summary" aria-pressed="false">Summary statistics</button>
+    <label id="aggregation-control"><span data-i18n="aggregation">Across entities</span><select id="aggregation" data-i18n-aria="aggregation"></select></label>
     <span id="aggregation-note"></span>
+  </div>
+  <div id="settings-menu" popover class="toolbar-menu" role="dialog" data-i18n-aria="settingsMenu">
+    <label><span data-i18n="language">Language</span><select id="language" data-i18n-aria="language"><option value="en">English</option><option value="zh">中文</option></select></label>
+    <label><span data-i18n="theme">Theme</span><select id="theme" data-i18n-aria="theme"><option value="auto" data-i18n="themeAuto">System</option><option value="light" data-i18n="themeLight">Light</option><option value="dark" data-i18n="themeDark">Dark</option></select></label>
+    <p id="theme-host-note" data-i18n="themeHost" hidden>Theme follows VS Code.</p>
   </div>
   <main id="reader" tabindex="0" data-i18n-aria="reader">
     <div id="cube"><section class="face" data-face="0"></section><section class="face" data-face="1"></section><section class="face" data-face="2"></section><section class="face" data-face="3"></section></div>
     <div id="layer-motion" aria-hidden="true" hidden></div>
     <section id="summary-table" hidden></section>
+    <section id="flat-table" hidden></section>
   </main>
   <div id="table-pages"><span data-i18n="rowCount">Rows</span><button id="rows-prev" data-i18n-aria="previousRows">‹</button><span id="rows-range"></span><button id="rows-next" data-i18n-aria="nextRows">›</button><span data-i18n="columns">Columns</span><button id="cols-prev" data-i18n-aria="previousColumns">‹</button><span id="cols-range"></span><button id="cols-next" data-i18n-aria="nextColumns">›</button></div>
   <p id="summary-note" hidden data-i18n="summaryNote">Raw observations in the selected scope, not pre-aggregated values. SD: n−1. Quartiles: linear interpolation. Missing and absent records are counted separately. Pagination does not restrict statistics.</p>
@@ -51,13 +68,35 @@
     <div class="figure-heading"><h2 id="scan-title" data-i18n="scanTitle">Scan Parquet</h2><button id="scan-close" data-i18n="close">Close</button></div>
     <label class="scan-path"><span data-i18n="scanPath">Local file path</span><input id="scan-path" type="text" spellcheck="false" placeholder="C:\data\panel.parquet"><button id="scan-inspect" data-i18n="open">Open</button></label>
     <p data-i18n="scanNote">Reads directly from disk. Opening reads metadata and one page, not the entire file.</p><p id="scan-meta" class="text-fields"></p>
-    <fieldset id="scan-options" disabled><details><summary data-i18n="scanColumns">Columns (up to 24)</summary><div id="scan-columns"></div></details>
-      <div id="scan-filters"></div><button id="scan-add-filter" data-i18n="scanAddFilter">Add filter</button>
+    <fieldset id="scan-options" disabled><details><summary data-i18n="scanSelection">Columns and time filters</summary><details open><summary data-i18n="scanColumns">Columns (up to 24)</summary><div id="scan-columns"></div></details>
+      <div class="scan-time"><label><span data-i18n="scanTime">Time column (optional)</span><select id="scan-time-column"></select></label><label><span data-i18n="scanFrom">From (inclusive)</span><input id="scan-time-start" type="text"></label><label><span data-i18n="scanTo">To (inclusive)</span><input id="scan-time-end" type="text"></label></div>
+      <p data-i18n="scanFolderNote">A folder is one dataset, including subfolders. Schemas must match. Reopen to include new files.</p>
+      <div id="scan-filters"></div><button id="scan-add-filter" data-i18n="scanAddFilter">Add filter</button></details>
     </fieldset>
+    <fieldset id="lazy-controls" disabled><div class="scan-time">
+      <label><span data-i18n="viewMenu">View</span><select id="lazy-view"><option value="raw" data-i18n="dataView">Data table</option><option value="cross" data-i18n="cross">Cross-section</option><option value="series" data-i18n="series">Time-series</option><option value="summary" data-i18n="summary">Summary statistics</option></select></label>
+      <label><span data-i18n="entityColumn">Entity column</span><select id="lazy-entity"></select></label>
+      <label><span data-i18n="timeColumn">Time column</span><select id="lazy-time"></select></label>
+      <label><span data-i18n="layer">Current layer</span><select id="lazy-layer"></select></label>
+    </div></fieldset>
     <div class="scan-actions"><button id="scan-apply" data-i18n="scanApply" disabled>Apply selection</button><button id="scan-extract" data-i18n="scanExtract" disabled>Open selection as panel</button><button id="scan-cancel" data-i18n="cancel" hidden>Cancel</button></div>
-    <p data-i18n="scanLimitNote">Panel extraction requires the complete selected result to fit 100,000 rows and 10 MB. Source paging reads on demand. Large-file capacity is still being validated.</p>
-    <p id="scan-error" role="alert"></p><div id="scan-table"></div>
-    <div class="scan-pages"><button id="scan-prev" data-i18n="previousRows" disabled>Previous rows</button><span id="scan-page-info"></span><button id="scan-next" data-i18n="nextRows" disabled>Next rows</button><label><span data-i18n="scanStartRow">Start row</span><input id="scan-offset" type="number" min="1" step="1" value="1"></label><button id="scan-jump" data-i18n="scanGo" disabled>Go</button></div>
+    <details id="lazy-figure"><summary data-i18n="figure">Create figure</summary>
+      <div class="scan-time">
+        <label><span data-i18n="yVariable">Y / measure</span><select id="lazy-y"></select></label>
+        <label><span data-i18n="kind">Plot</span><select id="lazy-plot"><option value="line" data-i18n="line">Time series</option><option value="bar" data-i18n="bar">Bar chart</option></select></label>
+        <label><span data-i18n="lazyAggregation">Statistic</span><select id="lazy-aggregation"><option value="mean" data-i18n="mean">Mean</option><option value="sum" data-i18n="sum">Sum</option><option value="median" data-i18n="median">Median</option><option value="sd" data-i18n="sd">SD</option><option value="min" data-i18n="min">Min</option><option value="max" data-i18n="max">Max</option><option value="count" data-i18n="count">Count</option><option value="none" data-i18n="oneEntity">One entity</option></select></label>
+        <label><span data-i18n="entity">Entity</span><input id="lazy-figure-entity" type="text"></label>
+        <label><span data-i18n="template">Template</span><select id="lazy-preset"><option value="nature">Nature</option><option value="seaborn">Seaborn</option><option value="icml">ICML</option><option value="aer">AER</option></select></label>
+        <label><span data-i18n="size">Width</span><select id="lazy-size"><option value="single" data-i18n="single">Single column</option><option value="double" data-i18n="double">Double column</option></select></label>
+      </div>
+      <div class="scan-time"><label><span data-i18n="xLabel">X label / unit</span><input id="lazy-xlabel" maxlength="160"></label><label><span data-i18n="yLabel">Y label / unit</span><input id="lazy-ylabel" maxlength="160"></label></div>
+      <button id="lazy-draw" data-i18n="draw" disabled>Draw</button><button id="lazy-export" data-i18n="recipe" disabled>Data + settings</button>
+      <button id="lazy-svg" disabled>SVG</button><button id="lazy-pdf" disabled>PDF</button><button id="lazy-png" disabled>PNG</button>
+      <div id="lazy-preview"></div>
+    </details><p id="lazy-scope" role="status"></p>
+    <p id="scan-extract-note" data-i18n="scanLimitNote">Source paging reads on demand. Opening as a panel extracts the complete selection, limited to 100,000 rows and 10 MB.</p>
+    <p id="scan-error" role="alert"></p><div id="scan-table" tabindex="0"></div>
+    <div class="scan-pages"><button id="lazy-time-prev" data-i18n="previousColumns" hidden>Previous columns</button><button id="lazy-time-next" data-i18n="nextColumns" hidden>Next columns</button><button id="scan-prev" data-i18n="previousRows" disabled>Previous rows</button><span id="scan-page-info"></span><button id="scan-next" data-i18n="nextRows" disabled>Next rows</button><label><span data-i18n="scanStartRow">Start row</span><input id="scan-offset" type="number" min="1" step="1" value="1"></label><button id="scan-jump" data-i18n="scanGo" disabled>Go</button></div>
   </dialog>
   <dialog id="compose-dialog" aria-labelledby="compose-title">
     <div class="figure-heading"><h2 id="compose-title" data-i18n="composeTitle">Combine tables</h2><button id="compose-close" data-i18n="close">Close</button></div>

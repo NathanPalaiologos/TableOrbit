@@ -2,23 +2,164 @@
   "name": "tableorbit",
   "displayName": "TableOrbit",
   "description": "Read panel data through rotating cross-section and time-series tables.",
-  "repository": { "type": "git", "url": "https://github.com/NathanPalaiologos/TableOrbit.git" },
-  "homepage": "https://github.com/NathanPalaiologos/TableOrbit#readme",
-  "bugs": { "url": "https://github.com/NathanPalaiologos/TableOrbit/issues" },
-  "version": "0.1.0",
-  "publisher": "tableorbit-local",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Visualization"],
-  "main": "./extension.cjs",
-  "activationEvents": ["onStartupFinished", "onCommand:panelSpace.openDemo", "onCommand:panelSpace.openCsv"],
-  "contributes": {
-    "configuration": { "title":"TableOrbit", "properties": {"panelSpace.pythonPath":{"type":"string","default":"","description":"Python executable with DuckDB for Parquet scans and Matplotlib/Seaborn for figures. Empty uses python on PATH."}} },
-    "commands": [
-      { "command": "panelSpace.openDemo", "title": "TableOrbit: Open Grunfeld Demo" },
-      { "command": "panelSpace.openCsv", "title": "TableOrbit: Explore Data" }
-    ],
-    "menus": { "explorer/context": [{ "command": "panelSpace.openCsv", "when": "resourceExtname =~ /\\.(parquet|csv|tsv|json|jsonl|ndjson)$/", "group": "navigation" }] }
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NathanPalaiologos/TableOrbit.git"
   },
-  "scripts": { "start": "node scripts/serve.cjs", "doctor":"node scripts/tableorbit.mjs doctor", "test": "node --test tests/data.test.mjs tests/reader.test.mjs tests/analysis.test.mjs tests/import.test.mjs tests/summary.test.mjs tests/interaction.test.mjs tests/detect.test.mjs tests/compose.test.mjs", "stress":"node tests/stress.mjs" },
-  "license": "MIT"
+  "homepage": "https://github.com/NathanPalaiologos/TableOrbit#readme",
+  "bugs": {
+    "url": "https://github.com/NathanPalaiologos/TableOrbit/issues"
+  },
+  "version": "0.2.0",
+  "publisher": "tableorbit-local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "main": "./extension.cjs",
+  "activationEvents": [
+    "onCommand:panelSpace.openDemo",
+    "onCommand:panelSpace.openCsv",
+    "onCommand:panelSpace.openParquetFolder",
+    "onCustomEditor:tableorbit.data",
+    "onCommand:panelSpace.agentCLI"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "TableOrbit",
+      "properties": {
+        "panelSpace.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "Python executable with DuckDB for Parquet scans and Matplotlib/Seaborn for figures. Empty uses python on PATH.",
+          "scope": "machine"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "panelSpace.openDemo",
+        "title": "TableOrbit: Open Grunfeld Demo"
+      },
+      {
+        "command": "panelSpace.openCsv",
+        "title": "TableOrbit: Explore Data"
+      },
+      {
+        "command": "panelSpace.openParquetFolder",
+        "title": "TableOrbit: Open Parquet Dataset Folder"
+      },
+      {
+        "command": "panelSpace.agentCLI",
+        "title": "TableOrbit: Show Agent CLI Command"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "panelSpace.openCsv",
+          "when": "resourceExtname =~ /\\.(parquet|csv|tsv|json|jsonl|ndjson)$/",
+          "group": "navigation"
+        },
+        {
+          "command": "panelSpace.openParquetFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "navigation"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "tableorbit.data",
+        "displayName": "TableOrbit",
+        "selector": [
+          {
+            "filenamePattern": "*.parquet"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
+  },
+  "scripts": {
+    "start": "node scripts/serve.cjs",
+    "doctor": "node scripts/tableorbit.mjs doctor",
+    "test": "node --test tests/data.test.mjs tests/reader.test.mjs tests/analysis.test.mjs tests/import.test.mjs tests/summary.test.mjs tests/interaction.test.mjs tests/detect.test.mjs tests/compose.test.mjs tests/flat.test.mjs",
+    "stress": "node tests/stress.mjs",
+    "package:check": "node scripts/package-check.mjs",
+    "vscode:prepublish": "node scripts/package-check.mjs",
+    "package:vsix": "vsce package --no-dependencies",
+    "test:flat": "node --test tests/flat.test.mjs"
+  },
+  "license": "MIT",
+  "preview": true,
+  "extensionKind": [
+    "workspace"
+  ],
+  "keywords": [
+    "parquet",
+    "panel data",
+    "data viewer",
+    "duckdb"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "The local engine runs a configured Python executable."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Parquet queries require filesystem paths on the extension host."
+    }
+  },
+  "files": [
+    "extension.cjs",
+    "scripts/scan.cjs",
+    "scripts/scan_file.py",
+    "scripts/figure.cjs",
+    "scripts/render_figure.py",
+    "web/index.html",
+    "web/style.css",
+    "web/analysis.mjs",
+    "web/app.mjs",
+    "web/compose.mjs",
+    "web/composer.mjs",
+    "web/data.mjs",
+    "web/detect.mjs",
+    "web/figures.mjs",
+    "web/flat.mjs",
+    "web/i18n.mjs",
+    "web/import.mjs",
+    "web/interaction.mjs",
+    "web/limits.mjs",
+    "web/reader.mjs",
+    "web/scanner.mjs",
+    "web/time.mjs",
+    "web/data/grunfeld.csv",
+    "web/data/gapminder.tsv",
+    "web/data/nlswork.csv",
+    "requirements-engine.txt",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY.md",
+    "CHANGELOG.md",
+    "LAZY_FILES.md",
+    "RELEASE.md",
+    "IMPORT_DETECTION.md",
+    "MULTITABLE_CONNECTIONS.md",
+    "INTERACTION_DESIGN.md",
+    "STRESS_TEST.md",
+    "PARQUET_VALIDATION.md",
+    "web/toolbar.mjs",
+    "ROADMAP.md",
+    "scripts/lazy_queries.py",
+    "scripts/tableorbit.mjs",
+    "scripts/serve.cjs",
+    "AGENT_CLI.md"
+  ],
+  "bin": {
+    "tableorbit": "./scripts/tableorbit.mjs"
+  }
 }

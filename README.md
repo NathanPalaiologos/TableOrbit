@@ -10,7 +10,17 @@ A local panel-data reader. The browser preview and VS Code webview share the sam
 
 `Dataset` switches immediately between three panel examples and recently imported datasets, without repeating field mapping for examples. Grunfeld is the compact default, Gapminder shows country trends, and NLS work shows a larger unbalanced panel. `Open file…` goes directly to the file picker and `Paste…` opens the text form. Up to five loaded datasets are retained in memory. Switching datasets resets the reading selection, while switching language preserves it. Both languages use the same components and layout.
 
-`Create figure` is the primary action in the top toolbar. `Export table` sits alongside variable selection and summary statistics. Import controls remain secondary, with the same order and grouping in English and Chinese.
+The top toolbar keeps `Dataset`, `Variables` and `Create figure` visible. `Data` contains imports, table assembly and export. `View` contains entity selection, flat tables, summary statistics and aggregation. `Settings` contains language and theme. Both languages use the same layout.
+
+In the browser, choose System, Light or Dark in Settings. The extension follows VS Code's theme colors and fonts. Figures retain a white page for publication. The browser themes have been checked locally; theme changes inside a running VS Code extension host still need testing.
+
+## Large Parquet and agents
+
+`Data → Scan Parquet` opens a local file or dataset folder. Select columns and filters, then choose raw rows, cross-section, time-series or summary statistics. Panel views require explicit entity/time keys. Statistics and the dialog's Create figure query the filtered source directly; paging does not change their scope. Lines and bars export as SVG, PDF or PNG. The existing main reader still works with imported or extracted data.
+
+The scanner reuses a DuckDB worker and sends only bounded results to the interface. On the tested nine-file, 7.49-million-row source, a repeated 100-row query took about 0.05 seconds and a full-source single-variable summary took 1.20 seconds. The initial key audit remained slower. See [validation and limits](PARQUET_VALIDATION.md) and [file-reading details](LAZY_FILES.md).
+
+The extension registers a read-only Parquet editor for File Explorer. Other supported files retain the Explore Data context action. `TableOrbit: Show Agent CLI Command` prints the installed CLI path and configured Python environment. Agents send JSON Lines for inspection, paging, panel slices, statistics and figures through the same engine. See [AGENT_CLI.md](AGENT_CLI.md). Native VSIX installation has not yet been tested.
 
 ## Read
 
@@ -23,6 +33,10 @@ A local panel-data reader. The browser preview and VS Code webview share the sam
 - Row and column headers remain visible while scrolling. The layer dropdown jumps directly. Arrow shortcuts apply only in the reading area.
 - `Variables…` opens a searchable checklist. Visible variables control columns, keyboard variable layers, summary rows and table exports; source data are not removed. At least one variable must remain visible.
 - Large tables display pages of up to 100 rows × 24 columns. Pagination changes the reading window only. Statistics and export use the complete included population and variable selection. Entity selection shows up to 200 search matches, retaining selections outside the current search.
+
+## Flat table
+
+`View → Flat table` expands the mapped panel into an ordinary table with entity, time and selected variables. Each existing observation occupies one row, in import order. Included entities and visible variables are respected. Missing entity/time combinations are not invented, and aggregation settings are bypassed for the flat display, export and figure context. `Panel view` returns to the prior orientation and retains the selected coordinate. Arrow keys move cells in flat mode. Pages remain bounded and Export table includes every selected observed record.
 
 ## Summary table
 
@@ -91,15 +105,15 @@ VS Code development host:
 code --new-window --extensionDevelopmentPath="$PWD" "$PWD"
 ```
 
-Set `panelSpace.pythonPath` in VS Code when Python is not on PATH. Commands: `TableOrbit: Open Grunfeld Demo` and `TableOrbit: Explore Data`. The extension is not published or installed into the normal profile.
+After launching the development host, run a TableOrbit command from the Command Palette. Set `panelSpace.pythonPath` in VS Code when Python is not on PATH. Commands: `TableOrbit: Open Grunfeld Demo` and `TableOrbit: Explore Data`. The extension is not published or installed into the normal profile.
 
 The internal `panelSpace` command/configuration identifiers and `PANEL_SPACE_PYTHON` environment variable retain their original spelling for compatibility. The working project name is TableOrbit.
 
 ## Parquet on disk
 
-`Scan Parquet` opens a local path through DuckDB, then pages 100 rows with selected columns and typed filters. The file is not uploaded or fully loaded into browser memory. `Open selection as panel` explicitly extracts the complete filtered selection within the existing panel limits. Whole-file panel analysis is not yet lazy. See [LAZY_FILES.md](LAZY_FILES.md) for the CLI, data flow and boundaries.
+`Scan Parquet` opens a local file or dataset folder through DuckDB, then pages 100 rows with selected columns, typed filters and optional time bounds. The file is not uploaded or fully loaded into browser memory. `Open selection as panel` explicitly extracts the complete filtered selection within the existing panel limits. Whole-file panel analysis is not yet lazy. See [LAZY_FILES.md](LAZY_FILES.md) for the CLI, data flow and boundaries.
 
-The acceptance target is at least 1 GB on disk. Only a 4,000-row synthetic fixture has been checked for this path; the large-file benchmark was deferred at the user request.
+Read-only validation passed on a 1.24 GB, 221-million-row file and a nine-shard, 7.49-million-row dataset. See [PARQUET_VALIDATION.md](PARQUET_VALIDATION.md) for timings, memory and limits. The private sources are not bundled examples.
 
 ## Data contract and limits
 
@@ -181,3 +195,5 @@ NLS work remains in the dataset switcher as the unbalanced panel example: 4,711 
 Original application code is licensed under [MIT](LICENSE). Bundled example data and the unused Three.js files are third-party material, with sources and notices listed in [THIRD_PARTY.md](THIRD_PARTY.md).
 
 - 2026-10-08: Added a DuckDB-backed local Parquet scan path with bounded pages, column projection, typed filters and explicit bounded panel extraction. Target: at least 1 GB on disk, pending a large-file benchmark. User deferred large-file generation in favor of small-sample validation. See [LAZY_FILES.md](LAZY_FILES.md).
+
+- 2026-10-08: Validated actual 1 GB+ Parquet reading, added coherent folder snapshots, time ranges, Hive pruning and footer-based shard paging. Added observed-record flat view and a desktop VS Code preview packaging framework. The earlier deferred-capacity status is superseded by [PARQUET_VALIDATION.md](PARQUET_VALIDATION.md). See [RELEASE.md](RELEASE.md) for pending publication steps.

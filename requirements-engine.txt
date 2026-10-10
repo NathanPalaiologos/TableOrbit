@@ -1,0 +1,2 @@
+# Tested local Parquet worker. Figures use separate, optional Matplotlib/Seaborn.
+duckdb==1.5.3

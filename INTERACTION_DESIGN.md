@@ -59,10 +59,36 @@ Physical held-key behavior across every OS/browser and assistive-technology comb
 
 ## Presentation curation and figure visibility
 
-Subsequent multi-table update: Combine tables joins the secondary import actions, with Create figure retaining the primary accent. Four actions share a row below 1050 px and wrap to two columns below 540 px. The local composer separates operation, explicit key pairs, cardinality and added columns, then shows an audit before handing the result to axis mapping. CLI-managed database access is a selected design direction, not a completed integration. See [MULTITABLE_CONNECTIONS.md](MULTITABLE_CONNECTIONS.md).
+The local composer separates operation, explicit key pairs, cardinality and added columns, then shows an audit before handing the result to axis mapping. CLI-managed database access is a selected design direction, not a completed integration. See [MULTITABLE_CONNECTIONS.md](MULTITABLE_CONNECTIONS.md).
 
 The presentation menu contains three complementary panels: Grunfeld for a compact balanced firm panel, Gapminder for country comparisons over time, and NLS work for a larger unbalanced person panel. Grunfeld remains the initial dataset. Cross-section, wide-import and single-series fixtures remain at their existing paths for tests and manual import. No source data or analytical sample changed.
 
 Create figure is the sole filled primary button in the main view, using the existing blue accent. Draw repeats that hierarchy inside the figure dialog. Export table moves to the table tool row, alongside selections and summary statistics. Entity and variable counts stay grouped with their buttons when controls wrap. Below 900 px, import and figure actions occupy their own row, while the dataset and language controls stay above. Both languages share this structure. Plot calculations, scope, keyboard routing and the existing summary-mode restriction are unchanged.
 
 The visual scan reports only the Quick guide hover underline, retained as intentional feedback. The update passed 17 focused import, reader and analysis checks. Browser verification covers the three curated datasets, a rendered Gapminder time-series figure with enabled exports, Chinese figure controls and focus returning to the trigger after closing. Toolbar geometry was checked at 480, 746 and 1200 px, with no horizontal toolbar overflow. The viewport was restored after checking. No full test suite or new package installation was needed. Native VS Code verification remains outstanding.
+
+## Flat view, 2026-10-08
+
+Flat table is a reversible view of observed records in import order. It displays entity, time (when present) and selected variables across included entities. It bypasses aggregation, preserves missing values and never fills absent keys. Arrow keys move cells and cross page boundaries; native controls, dialogs, modifiers and IME retain priority. Returning to Panel view preserves the selected entity/time/variable and prior orientation. Flat export uses all included observed records, not the current page. Figures opened from flat view use raw values.
+
+Browser validation covered Grunfeld's 220 records, row-page navigation and an ArrowUp crossing from row 101 to row 100. Export contained 220 unique firm/year records and all five columns. English/Chinese controls shared the same layout. Parquet's dedicated inclusive year range returned the expected 40 synthetic records for 2001 through 2002.
+
+## Toolbar and themes (2026-10-09)
+
+Dataset selection, Variables and Create figure remain directly accessible. Data contains file/paste imports, Parquet scanning, table assembly and export. View contains entity selection, flat/summary tables and aggregation. Settings holds language and theme. The direction controls remain a separate navigation row. Below 880 px the actions wrap to a second header row. This replaces the earlier always-visible import and analysis rows.
+
+Native popovers handle Escape, outside-click dismissal and Tab navigation. They contain ordinary buttons and selects, rather than an ARIA menu with conflicting arrow-key semantics. Closing a dialog opened from a menu returns focus to that menu's visible trigger. View choices update the reader through the existing handlers. Scope counts remain in the footer so hiding the menu does not hide population selection.
+
+`web/toolbar.mjs` owns menu placement and theme preference. `web/style.css` defines semantic colors. VS Code's body classes and CSS variables override browser colors, and a class observer follows host theme changes. Browser choices persist in local storage when available. High-contrast borders and the host reduced-motion class have CSS rules, but still require testing in a native extension host. The figure page remains white in both themes.
+
+Copy uses short actions and concrete instructions in both languages. Repeated warnings and wording such as “confirm explicitly” and “not submission certification” were removed. Numeric limits, missing-value rules and statistical definitions remain visible where they affect interpretation.
+
+Validation for this change: six targeted interaction/flat-table tests passed. Browser checks covered persisted dark mode, Chinese light mode, menu Escape behavior, dialog focus return, flat and summary views, aggregation, variable selection, reader arrow keys and the white figure canvas. At 480 px and 1200 px, the page had no horizontal document overflow and the open menu stayed inside the viewport. No browser errors appeared in the final check. The visual scanner retained one intentional hit for the Quick guide hover underline. Actual VS Code host theme switching remains unverified.
+
+## Direct Parquet views (2026-10-10)
+
+The Parquet dialog now offers raw rows, cross-section, time-series and summary statistics. Set keys explicitly, select numeric variables in Columns and time filters, and Apply. Raw rows do not require panel keys. Summary and figure scope is the complete filtered source, independent of the visible page. Extraction is a separate optional action that loads a bounded selection into the main reader.
+
+In the Parquet table, up/down changes the layer and left/right changes the reading face. Shift+arrows selects cells within the page. Raw-view arrows select cells. Page buttons move between entity or time pages. Face changes preserve the selected entity, time and variable. Native form controls keep their keys. This path has no rotation animation or automatic cell movement across page boundaries.
+
+Create figure stays inside the Parquet dialog, with direct variable, statistic, labels, preset and export controls. Only lines and bars are connected to the lazy source. Changing source choices invalidates old exports. Cancelling or closing the dialog discards late query results. Cancellation stops the query worker; figure rendering has its separate existing timeout.
