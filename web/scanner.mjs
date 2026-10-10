@@ -1,8 +1,14 @@
 import {t,errorText,textFields} from './i18n.mjs';
 
+export function scanAnalysisSpec(base,{action,measures,entity,time,view,period,variable,timeOffset,audit=false,aggregation='mean'}) {
+  const validate=action==='axes' || action==='panel' || action==='summary' && audit || action==='figure-data' && aggregation==='none';
+  return {...base,action,columns:action==='figure-data'?[variable]:measures,entity:validate?entity||null:null,time:time||null,
+    view,period,variable,timeOffset};
+}
+
 export function setupScanner({vscode,openResult}) {
   const $=id=>document.getElementById(id);
-  let source=null,offset=0,busy=false,serial=0,axes=null,timeOffset=0,epoch=0,figure=null,lastPage=null,selectedCell={row:0,col:0};
+  let source=null,offset=0,busy=false,dirty=false,serial=0,axes=null,timeOffset=0,epoch=0,figure=null,lastPage=null,selectedCell={row:0,col:0};
   const numeric=type=>/^(U?(TINY|SMALL|BIG|HUGE)?INT(EGER)?|FLOAT|DOUBLE|DECIMAL\(\d+,\d+\))$/.test(type);
   const pending=new Map();
   const token=document.querySelector('meta[name="tableorbit-session"]')?.content;
@@ -27,12 +33,18 @@ export function setupScanner({vscode,openResult}) {
   function controls() {
     for(const id of ['scan-inspect','scan-apply','scan-extract','scan-jump','scan-add-filter']) $(id).disabled=busy || (id!=='scan-inspect' && !source);
     $('scan-cancel').hidden=!busy;
-    $('scan-prev').disabled=busy || !lastPage || offset===0 || $('lazy-view').value==='summary';
-    $('scan-next').disabled=busy || !lastPage?.hasMore;
-    $('lazy-time-prev').disabled=busy || !lastPage || timeOffset===0;
-    $('lazy-time-next').disabled=busy || !lastPage?.timeHasMore;
+    $('scan-prev').disabled=busy || dirty || !lastPage || offset===0 || $('lazy-view').value==='summary';
+    $('scan-next').disabled=busy || dirty || !lastPage?.hasMore;
+    $('lazy-time-prev').disabled=busy || dirty || !lastPage || timeOffset===0;
+    $('lazy-time-next').disabled=busy || dirty || !lastPage?.timeHasMore;
     $('lazy-controls').disabled=busy || !source;
-    $('lazy-draw').disabled=busy || !source;
+    $('lazy-draw').disabled=busy || dirty || !source;
+    $('scan-extract').disabled=busy || dirty || !source;
+    $('scan-jump').disabled=$('scan-offset').disabled=busy || dirty || !source;
+    $('scan-pending').hidden=!dirty;
+    $('scan-records').disabled=busy;
+    $('lazy-audit-label').hidden=$('lazy-view').value!=='summary';
+    $('scan-view-hint').textContent=t($('lazy-view').value==='raw'?'scanRecordHint':$('lazy-view').value==='summary'?'scanSummaryHint':'scanPanelHint');
     $('scan-close').disabled=false;
     $('scan-extract').hidden=$('scan-extract-note').hidden=$('lazy-view').value!=='raw';
     $('lazy-layer').disabled=busy || !['cross','series'].includes($('lazy-view').value);
@@ -43,7 +55,8 @@ export function setupScanner({vscode,openResult}) {
   }
   async function run(action) {
     if(busy)return;busy=true;controls();$('scan-error').textContent='';$('scan-prev').disabled=true;$('scan-next').disabled=true;
-    try {await action();}catch(error){$('scan-error').textContent=errorText(error);}
+    const previousOffset=offset,previousTimeOffset=timeOffset;
+    try {await action();}catch(error){offset=previousOffset;timeOffset=previousTimeOffset;$('scan-error').textContent=errorText(error);$('scan-records').hidden=!source || $('lazy-view').value==='raw';}
     finally {busy=false;controls();}
   }
   function filters() {
@@ -56,6 +69,14 @@ export function setupScanner({vscode,openResult}) {
   function clearPage() {
     lastPage=null;
     $('scan-table').replaceChildren();$('scan-page-info').textContent='';$('scan-prev').disabled=true;$('scan-next').disabled=true;
+    $('scan-cell-coordinate').textContent='';$('scan-cell-value').textContent='';
+  }
+  function columnList(){
+    const search=$('scan-column-search').value.trim().toLowerCase();
+    const inputs=[...$('scan-columns').querySelectorAll('input')];
+    const count=inputs.filter(input=>input.checked).length;
+    for(const input of inputs){input.parentElement.hidden=!input.value.toLowerCase().includes(search);input.disabled=!input.checked && count>=24;}
+    $('scan-column-count').textContent=`${count} / 24`;
   }
   function addFilter() {
     if(!source || $('scan-filters').children.length>=8)return;
@@ -74,25 +95,27 @@ export function setupScanner({vscode,openResult}) {
     return source.columns.filter(c=>selected.includes(c.name) && numeric(c.type) && ![$('lazy-entity').value,$('lazy-time').value].includes(c.name)).map(c=>c.name);
   }
   function analysisSpec(action){
-    return {...spec(action),columns:selectedMeasures(),entity:$('lazy-entity').value||null,time:$('lazy-time').value||null,
-      view:$('lazy-view').value,period:$('lazy-layer').value,variable:$('lazy-view').value==='series'?$('lazy-layer').value:$('lazy-y').value,timeOffset};
+    return scanAnalysisSpec(spec(action),{action,measures:selectedMeasures(),entity:$('lazy-entity').value,time:$('lazy-time').value,
+      view:$('lazy-view').value,period:$('lazy-layer').value,variable:action==='panel' && $('lazy-view').value==='series'?$('lazy-layer').value:$('lazy-y').value,
+      timeOffset,audit:$('lazy-audit').checked,aggregation:$('lazy-aggregation').value});
   }
   function measureChoices(){
     if(!source)return;
     const value=$('lazy-y').value;
-    $('lazy-y').replaceChildren(...selectedMeasures().map(c=>new Option(c,c)));
-    if(selectedMeasures().includes(value))$('lazy-y').value=value;
+    const measures=source.columns.filter(c=>numeric(c.type) && ![$('lazy-entity').value,$('lazy-time').value].includes(c.name)).map(c=>c.name);
+    $('lazy-y').replaceChildren(...measures.map(c=>new Option(c,c)));
+    if(measures.includes(value))$('lazy-y').value=value;
   }
   function invalidate(){
-    axes=null;timeOffset=0;offset=0;clearPage();clearFigure();measureChoices();
+    dirty=true;axes=null;timeOffset=0;offset=0;clearFigure();measureChoices();
     $('lazy-layer').replaceChildren();$('lazy-scope').textContent='';
+    $('scan-records').hidden=true;$('scan-error').textContent='';columnList();controls();
   }
   function clearFigure(){
     figure=null;$('lazy-preview').replaceChildren();
     for(const id of ['lazy-export','lazy-svg','lazy-pdf','lazy-png'])$(id).disabled=true;
   }
   async function page() {
-    clearPage();
     const view=$('lazy-view').value;
     let query,data;
     if(view==='raw'){query=spec('page');data=await request(query);}
@@ -104,7 +127,7 @@ export function setupScanner({vscode,openResult}) {
       query=analysisSpec(view==='summary'?'summary':'panel');
       data=await request(query);
     }
-    lastPage=data;
+    lastPage=data;dirty=false;$('scan-records').hidden=true;
     const table=document.createElement('table'),head=table.createTHead().insertRow();
     for(const name of data.columns){const th=document.createElement('th');th.textContent=view==='summary'?t(name==='variable'?'variables':name):name;head.append(th);}
     data.rows.forEach((record,index)=>{
@@ -114,6 +137,7 @@ export function setupScanner({vscode,openResult}) {
         td.textContent=view==='summary' && name==='absent' && value===null?t('lazyNoKeyAudit'):data.present && col>0 && !data.present[index][col-1]?t('absent'):value===null?t('missing'):String(value);
       });
     });
+    $('scan-cell-coordinate').textContent='';$('scan-cell-value').textContent='';
     $('scan-table').replaceChildren(table);selectCell(selectedCell.row,selectedCell.col,false);
     const scoped=view==='summary'?t('lazyAll'):view==='raw'?t(query.filters.length || query.timeRange?.start || query.timeRange?.end?'scanFiltered':'scanFileOrder'):t('entities');
     textFields($('scan-page-info'),[`${offset+(data.rows.length?1:0)}–${offset+data.rows.length}`,scoped]);
@@ -127,7 +151,7 @@ export function setupScanner({vscode,openResult}) {
     if(filePath)$('scan-path').value=filePath;
     if(!$('scan-dialog').open)$('scan-dialog').showModal();
     return run(async()=>{
-      source=null;axes=null;clearFigure();$('lazy-scope').textContent='';clearPage();$('scan-meta').textContent='';$('scan-columns').replaceChildren();$('scan-filters').replaceChildren();
+      source=null;axes=null;dirty=false;selectedCell={row:0,col:0};clearFigure();$('lazy-scope').textContent='';clearPage();$('scan-meta').textContent='';$('scan-columns').replaceChildren();$('scan-filters').replaceChildren();$('scan-column-search').value='';$('scan-records').hidden=true;$('lazy-audit').checked=false;
       source=await request({action:'inspect',path:$('scan-path').value});offset=0;
       metadata();
       $('lazy-view').value='raw';axes=null;timeOffset=0;
@@ -139,17 +163,29 @@ export function setupScanner({vscode,openResult}) {
         const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=c.name;input.checked=index<8;
         label.append(input,document.createTextNode(`${c.name} (${c.type})`));return label;
       }));
-      measureChoices();await page();
+      columnList();measureChoices();await page();
     });
   }
   $('open-scan').addEventListener('click',()=>{$('scan-dialog').showModal();controls();});
   $('scan-inspect').addEventListener('click',()=>inspect());
-  $('scan-path').addEventListener('input',()=>{source=null;axes=null;clearFigure();$('lazy-scope').textContent='';clearPage();$('scan-meta').textContent='';controls();});
+  $('scan-path').addEventListener('input',()=>{source=null;axes=null;dirty=false;clearFigure();$('lazy-scope').textContent='';clearPage();$('scan-meta').textContent='';$('scan-records').hidden=true;controls();});
   $('scan-cancel').addEventListener('click',()=>{epoch++;request({action:'cancel'}).catch(error=>{$('scan-error').textContent=errorText(error);});});
   $('scan-close').addEventListener('click',()=>{$('scan-dialog').close();});
   $('scan-dialog').addEventListener('close',()=>{epoch++;if(busy)request({action:'cancel'}).catch(()=>{});});
-  $('scan-options').addEventListener('change',invalidate);
-  $('lazy-controls').addEventListener('change',event=>{if(event.target.id==='lazy-layer'){clearFigure();run(page);}else invalidate();controls();});
+  $('scan-options').addEventListener('change',event=>{if(event.target.id!=='scan-column-search')invalidate();});
+  $('scan-options').addEventListener('input',event=>{if(event.target.matches('input:not([type=checkbox]):not([type=search])'))invalidate();});
+  $('scan-column-search').addEventListener('input',columnList);
+  $('scan-clear-columns').addEventListener('click',()=>{$('scan-columns').querySelectorAll('input').forEach(input=>{input.checked=false;});invalidate();});
+  $('scan-numeric').addEventListener('click',()=>{
+    const measures=source.columns.filter(c=>numeric(c.type) && ![$('lazy-entity').value,$('lazy-time').value].includes(c.name)).slice(0,24).map(c=>c.name);
+    $('scan-columns').querySelectorAll('input').forEach(input=>{input.checked=measures.includes(input.value);});invalidate();
+  });
+  $('lazy-controls').addEventListener('change',event=>{
+    if(event.target.id==='lazy-layer'){clearFigure();run(page);}
+    else {invalidate();if(event.target.id==='lazy-view' && ['raw','summary'].includes($('lazy-view').value))run(page);}
+    controls();
+  });
+  $('scan-records').addEventListener('click',()=>{$('lazy-view').value='raw';invalidate();run(page);});
   $('scan-add-filter').addEventListener('click',addFilter);
   $('scan-apply').addEventListener('click',()=>run(async()=>{offset=0;await page();}));
   $('scan-prev').addEventListener('click',()=>run(async()=>{offset=Math.max(0,offset-100);await page();}));
@@ -169,14 +205,27 @@ export function setupScanner({vscode,openResult}) {
     const c=Math.max(0,Math.min(col,cells.length-1));selectedCell={row:r,col:c};
     $('scan-table').querySelectorAll('.selected').forEach(td=>td.classList.remove('selected'));
     cells[c]?.classList.add('selected');if(reveal)cells[c]?.scrollIntoView({block:'nearest',inline:'nearest'});
+    if($('scan-cell').open)cellValue();
   }
+  function cellValue(){
+    if(!lastPage)return;
+    const record=lastPage.rows[selectedCell.row],name=lastPage.columns[selectedCell.col];
+    if(!record || !name)return;
+    const value=Array.isArray(record)?record[selectedCell.col]:record[name];
+    const shown=$('scan-table').querySelector('td.selected')?.textContent ?? '';
+    const text=value===null?shown:String(value);
+    $('scan-cell-coordinate').textContent=`${name} / ${selectedCell.row+1}`;
+    $('scan-cell-value').textContent=text.slice(0,20000)+(text.length>20000?'\n'+t('scanCellLimit'):'');
+  }
+  $('scan-cell').addEventListener('toggle',()=>{if($('scan-cell').open)cellValue();});
   $('scan-table').addEventListener('click',event=>{
     const td=event.target.closest('td');if(!td)return;
     selectCell(td.parentElement.rowIndex-1,td.cellIndex);$('scan-table').focus({preventScroll:true});
   });
   $('scan-table').addEventListener('keydown',event=>{
+    if(event.key==='Enter' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.isComposing){event.preventDefault();$('scan-cell').open=!$('scan-cell').open;return;}
     if(event.ctrlKey || event.metaKey || event.altKey || event.isComposing || !event.key.startsWith('Arrow'))return;
-    if(busy){event.preventDefault();return;}
+    if(busy || dirty){event.preventDefault();return;}
     if(event.shiftKey || ['raw','summary'].includes($('lazy-view').value)){event.preventDefault();selectCell(selectedCell.row+(event.key==='ArrowDown'?1:event.key==='ArrowUp'?-1:0),selectedCell.col+(event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0));return;}
     if(!axes)return;
     if(event.repeat){event.preventDefault();return;}
@@ -198,7 +247,7 @@ export function setupScanner({vscode,openResult}) {
   for(const id of ['lazy-xlabel','lazy-ylabel','lazy-figure-entity'])$(id).addEventListener('input',clearFigure);
   $('lazy-draw').addEventListener('click',()=>run(async()=>{
     clearFigure();
-    const data=await request({...analysisSpec('figure-data'),variable:$('lazy-y').value,plot:$('lazy-plot').value,aggregation:$('lazy-aggregation').value,figureEntity:$('lazy-figure-entity').value});
+    const data=await request({...analysisSpec('figure-data'),plot:$('lazy-plot').value,aggregation:$('lazy-aggregation').value,figureEntity:$('lazy-figure-entity').value});
     const recipe={...data,xlabel:$('lazy-xlabel').value.trim()||data.xlabel,ylabel:$('lazy-ylabel').value.trim()||data.ylabel,preset:$('lazy-preset').value,size:$('lazy-size').value,source:source.name};
     const rendering=await request(recipe,true);figure={recipe,rendering};
     const img=document.createElement('img');img.addEventListener('load',()=>img.scrollIntoView({block:'nearest',inline:'nearest'}),{once:true});img.alt=data.ylabel;img.src='data:image/svg+xml;base64,'+rendering.files.svg;$('lazy-preview').replaceChildren(img);
@@ -222,6 +271,7 @@ export function setupScanner({vscode,openResult}) {
   function translate() {
     if(source)metadata();
     if($('scan-time-column').options.length)$('scan-time-column').options[0].textContent=t('chooseColumn');
+    for(const id of ['lazy-entity','lazy-time'])if($(id).options.length)$(id).options[0].textContent=t('chooseColumn');
     for(const row of $('scan-filters').children){
       row.children[0].setAttribute('aria-label',t('scanFilterColumn'));
       row.children[0].options[0].textContent=t('chooseColumn');
@@ -231,6 +281,7 @@ export function setupScanner({vscode,openResult}) {
     }
     // A new page will use the new language, without making an implicit disk query.
     clearPage();
+    controls();
   }
   return {inspect,initial,translate};
 }

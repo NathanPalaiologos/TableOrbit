@@ -165,6 +165,8 @@ def analyze(db, request, snapshot, types, source, where, params):
         calendar = not NUMERIC.fullmatch(types[time])
         points = []
         for period, value, count in result:
+            if period is None:
+                raise ValueError('Figure time values cannot be missing. Add an IS NOT NULL filter to the time column.')
             if plot == 'bar':
                 x = period
             elif calendar:

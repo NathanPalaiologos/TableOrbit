@@ -37,6 +37,9 @@ Suggestions use column names, values and unique keys. They cannot determine what
 4. Select **Apply**.
 5. Choose a panel view if you need entity–time slices.
 6. Set the entity and time columns.
+7. Select **Apply** again to read the panel.
+
+For repeated events, stay in **Record table**. Use **Find column** to search the checklist. Search keeps your existing selections. If a panel query rejects the keys, choose **Read as records**. See the [event-data check](EVENT_VALIDATION.md) for an example of why this matters.
 
 The Parquet reader queries the source directly. **Extract selection...** copies a bounded selection into the main reader. You do not need extraction for Parquet summaries or line/bar figures.
 
@@ -47,6 +50,8 @@ Folders must contain one dataset with matching column names and types. Reopen a 
 In the main reader, choose **View → Summary statistics**. Choose the full-period or current-period scope. The selected entities and visible variables determine the result.
 
 In the Parquet reader, choose its summary view. The result covers all filtered records, not just the displayed page.
+
+Select numeric columns first. Leave panel-key validation off for record-level statistics. Enable it only when you need absent entity–time counts and have valid panel keys.
 
 N counts nonmissing values. Missing values and absent entity–time records have separate counts. Statistics use sample standard deviation and interpolated quartiles. Each observed record has equal weight.
 

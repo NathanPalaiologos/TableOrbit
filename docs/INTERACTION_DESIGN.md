@@ -92,3 +92,9 @@ The Parquet dialog now offers raw rows, cross-section, time-series and summary s
 In the Parquet table, up/down changes the layer and left/right changes the reading face. Shift+arrows selects cells within the page. Raw-view arrows select cells. Page buttons move between entity or time pages. Face changes preserve the selected entity, time and variable. Native form controls keep their keys. This path has no rotation animation or automatic cell movement across page boundaries.
 
 Create figure stays inside the Parquet dialog, with direct variable, statistic, labels, preset and export controls. Only lines and bars are connected to the lazy source. Changing source choices invalidates old exports. Cancelling or closing the dialog discards late query results. Cancellation stops the query worker; figure rendering has its separate existing timeout.
+
+### Event records and pending selections
+
+The [event-data check](EVENT_VALIDATION.md) found valid event identifiers but repeated company/time pairs. Record table remains the initial view. Summary key auditing is now opt-in. Aggregated figures query their chosen numeric variable even if its table column is hidden. Panel views and single-entity raw figures still require valid keys.
+
+Find column filters checkbox visibility without changing selection. A changed selection keeps the last table visible and shows a pending message; Apply replaces it after success. While pending, paging, drawing and extraction are disabled. Errors retain the table, and panel errors expose Read as records. Enter expands the selected cell text. These changes keep the query scope explicit without adding a separate analysis workspace.

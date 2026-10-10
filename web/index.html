@@ -68,17 +68,18 @@
     <div class="figure-heading"><h2 id="scan-title" data-i18n="scanTitle">Scan Parquet</h2><button id="scan-close" data-i18n="close">Close</button></div>
     <label class="scan-path"><span data-i18n="scanPath">Local file path</span><input id="scan-path" type="text" spellcheck="false" placeholder="C:\data\panel.parquet"><button id="scan-inspect" data-i18n="open">Open</button></label>
     <p data-i18n="scanNote">Reads directly from disk. Opening reads metadata and one page, not the entire file.</p><p id="scan-meta" class="text-fields"></p>
-    <fieldset id="scan-options" disabled><details><summary data-i18n="scanSelection">Columns and time filters</summary><details open><summary data-i18n="scanColumns">Columns (up to 24)</summary><div id="scan-columns"></div></details>
+    <fieldset id="scan-options" disabled><details><summary data-i18n="scanSelection">Columns and time filters</summary><details open><summary data-i18n="scanColumns">Columns (up to 24)</summary>
+      <div class="scan-column-tools"><label><span data-i18n="scanSearch">Find column</span><input id="scan-column-search" type="search"></label><button id="scan-numeric" type="button" data-i18n="scanNumeric">Numeric columns (up to 24)</button><button id="scan-clear-columns" type="button" data-i18n="scanClear">Clear selection</button><span id="scan-column-count" role="status"></span></div><div id="scan-columns"></div></details>
       <div class="scan-time"><label><span data-i18n="scanTime">Time column (optional)</span><select id="scan-time-column"></select></label><label><span data-i18n="scanFrom">From (inclusive)</span><input id="scan-time-start" type="text"></label><label><span data-i18n="scanTo">To (inclusive)</span><input id="scan-time-end" type="text"></label></div>
       <p data-i18n="scanFolderNote">A folder is one dataset, including subfolders. Schemas must match. Reopen to include new files.</p>
       <div id="scan-filters"></div><button id="scan-add-filter" data-i18n="scanAddFilter">Add filter</button></details>
     </fieldset>
     <fieldset id="lazy-controls" disabled><div class="scan-time">
-      <label><span data-i18n="viewMenu">View</span><select id="lazy-view"><option value="raw" data-i18n="dataView">Data table</option><option value="cross" data-i18n="cross">Cross-section</option><option value="series" data-i18n="series">Time-series</option><option value="summary" data-i18n="summary">Summary statistics</option></select></label>
+      <label><span data-i18n="viewMenu">View</span><select id="lazy-view"><option value="raw" data-i18n="scanRecords">Record table</option><option value="cross" data-i18n="cross">Cross-section</option><option value="series" data-i18n="series">Time-series</option><option value="summary" data-i18n="summary">Summary statistics</option></select></label>
       <label><span data-i18n="entityColumn">Entity column</span><select id="lazy-entity"></select></label>
       <label><span data-i18n="timeColumn">Time column</span><select id="lazy-time"></select></label>
       <label><span data-i18n="layer">Current layer</span><select id="lazy-layer"></select></label>
-    </div></fieldset>
+    </div><label id="lazy-audit-label" hidden><input id="lazy-audit" type="checkbox"><span data-i18n="scanAudit">Validate panel keys and count absent records</span></label><p id="scan-view-hint"></p></fieldset>
     <div class="scan-actions"><button id="scan-apply" data-i18n="scanApply" disabled>Apply selection</button><button id="scan-extract" data-i18n="scanExtract" disabled>Open selection as panel</button><button id="scan-cancel" data-i18n="cancel" hidden>Cancel</button></div>
     <details id="lazy-figure"><summary data-i18n="figure">Create figure</summary>
       <div class="scan-time">
@@ -95,7 +96,8 @@
       <div id="lazy-preview"></div>
     </details><p id="lazy-scope" role="status"></p>
     <p id="scan-extract-note" data-i18n="scanLimitNote">Source paging reads on demand. Opening as a panel extracts the complete selection, limited to 100,000 rows and 10 MB.</p>
-    <p id="scan-error" role="alert"></p><div id="scan-table" tabindex="0"></div>
+    <p id="scan-pending" role="status" hidden data-i18n="scanPending">Selection changed. Apply to update the table.</p><p id="scan-error" role="alert"></p><button id="scan-records" type="button" data-i18n="scanBackRecords" hidden>Read as records</button><div id="scan-table" tabindex="0"></div>
+    <details id="scan-cell"><summary data-i18n="scanCell">Cell value (Enter)</summary><p id="scan-cell-coordinate"></p><pre id="scan-cell-value"></pre></details>
     <div class="scan-pages"><button id="lazy-time-prev" data-i18n="previousColumns" hidden>Previous columns</button><button id="lazy-time-next" data-i18n="nextColumns" hidden>Next columns</button><button id="scan-prev" data-i18n="previousRows" disabled>Previous rows</button><span id="scan-page-info"></span><button id="scan-next" data-i18n="nextRows" disabled>Next rows</button><label><span data-i18n="scanStartRow">Start row</span><input id="scan-offset" type="number" min="1" step="1" value="1"></label><button id="scan-jump" data-i18n="scanGo" disabled>Go</button></div>
   </dialog>
   <dialog id="compose-dialog" aria-labelledby="compose-title">

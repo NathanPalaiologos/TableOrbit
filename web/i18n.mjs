@@ -1,4 +1,12 @@
 const words = {
+  scanSearch:['Find column','查找列'],scanNumeric:['Numeric columns (up to 24)','数值列（最多 24 列）'],scanClear:['Clear selection','清空选择'],
+  scanRecords:['Record table','记录表'],scanBackRecords:['Read as records','按记录阅读'],scanCell:['Cell value (Enter)','单元格内容（Enter）'],
+  scanPending:['Selection changed. Apply to update the table.','选择已修改，点击“应用”更新表格。'],
+  scanAudit:['Validate panel keys and count absent records','验证面板键并统计缺失记录'],
+  scanRecordHint:['Each source record stays one row. Repeated entity/time pairs are allowed.','每条源记录保留为一行，允许个体与时间组合重复。'],
+  scanPanelHint:['Choose the entity and time columns. Each pair must identify one record.','选择个体列和时间列，每个组合必须对应唯一记录。'],
+  scanSummaryHint:['Summaries use all filtered records. Key validation is optional.','统计覆盖全部筛选记录，可按需验证面板键。'],
+  scanCellLimit:['Showing the first 20,000 characters. The source value is unchanged.','仅显示前 20,000 个字符，源值未改变。'],
   lazyNoKeyAudit:['Not checked','未检查'],
   lazyAggregation:['Statistic','统计量'],
   lazyAll:['All filtered source records','源文件全部筛选记录'],lazyCancelled:['Query cancelled.','查询已取消。'],
@@ -139,6 +147,9 @@ export function errorText(error) {
   const message = error.message ?? String(error);
   if (language === 'zh') {
     const chartErrors = {
+      'Entity and time keys cannot be missing.':'个体列或时间列有缺失值。可按记录阅读，或明确筛选后再读取面板。',
+      'Figure time values cannot be missing. Add an IS NOT NULL filter to the time column.':'绘图时间列有缺失值。请为该列添加 IS NOT NULL 筛选。',
+      'Choose a time column for the figure.':'请选择绘图使用的时间列。',
       'Select numeric measure columns, excluding the entity and time keys.':'请选择数值变量，排除个体列和时间列。',
       'Choose different entity and time columns.':'请选择不同的个体列和时间列。',
       'Duplicate entity/time keys. Choose the correct keys or narrow the filters. No rows were combined.':'个体与时间组合重复，请检查键列或缩小筛选范围。',

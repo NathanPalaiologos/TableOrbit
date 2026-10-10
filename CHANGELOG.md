@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Search Parquet columns and choose figure measures independently of table columns.
+- Keep the last table visible until a new selection succeeds; offer record view after a rejected panel query.
+- Make summary key audits optional and add an expandable cell-value view.
+- Reject missing figure times with a filter instruction, without silently dropping records.
+- Validate projected reading on a private 1.96 GB event file and replace the Explorer entry screenshot.
+
 ## 0.2.0 preview
 
 - Reuse a DuckDB query process, with cancellation, restart and idle shutdown.

@@ -80,6 +80,7 @@ button.primary-action:disabled{background:var(--header);border-color:var(--line)
 #scan-options{margin:0;padding:8px;max-height:220px;overflow:auto;flex-shrink:0}
 #scan-columns{display:flex;flex-wrap:wrap;gap:6px 12px;max-height:100px;overflow:auto;margin:8px 0}
 #scan-columns label{display:flex;align-items:center;gap:4px;font-size:12px}
+#scan-columns label[hidden]{display:none}.scan-column-tools{display:flex;align-items:end;flex-wrap:wrap;gap:8px;margin-top:8px}.scan-column-tools label{display:grid;gap:4px}#scan-column-count{font-size:12px;align-self:center}#scan-pending{color:var(--accent)}#scan-cell{font-size:12px;max-height:180px;overflow:auto;flex-shrink:0}#scan-cell summary{cursor:pointer}#scan-cell-value{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:6px 0}#scan-cell-coordinate,#scan-view-hint{font-size:12px;margin:6px 0}#scan-records{align-self:start}
 .scan-time{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.scan-time label{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}.scan-time input,.scan-time select{width:100%;min-width:0;font:inherit;padding:4px}
 .scan-filter{display:flex;gap:6px;align-items:center;margin:6px 0}.scan-filter select,.scan-filter input{min-width:0;max-width:30%;font:inherit}
 #scan-table{min-height:100px;overflow:auto;flex:1;border:1px solid var(--line)}#scan-table td{cursor:default;overflow:hidden;text-overflow:ellipsis;max-width:360px}

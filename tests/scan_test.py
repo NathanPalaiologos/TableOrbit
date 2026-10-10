@@ -204,6 +204,20 @@ class ScanTests(unittest.TestCase):
         with self.assertRaises(ValueError):engine.scan({**base,'action':'panel','period':"' OR true --"})
         with self.assertRaises(ValueError):engine.scan({**base,'action':'panel','period':'2020-01-01','offset':-1})
 
+    def test_missing_figure_time_requires_explicit_filter(self):
+        file=pathlib.Path(self.temp.name)/'missing-time.parquet'
+        with duckdb.connect() as db:
+            db.execute("COPY (SELECT * FROM (VALUES (DATE '2020-01-01', 2), (NULL, 4)) t(day,value)) TO ? (FORMAT PARQUET)",[str(file)])
+        base={'path':str(file),'columns':['value'],'time':'day','variable':'value','action':'figure-data'}
+        for plot in ['line','bar']:
+            with self.assertRaisesRegex(ValueError, 'IS NOT NULL'):
+                engine.scan({**base,'plot':plot})
+        figure=engine.scan({**base,'filters':[{'column':'day','op':'notnull'}]})
+        self.assertEqual(figure['metadata']['inputCount'],1)
+        self.assertEqual(figure['series'][0]['points'][0]['y'],2)
+        summary=engine.scan({**base,'action':'summary'})
+        self.assertEqual(summary['rows'][0]['n'],'2')
+
     def test_untrusted_identifiers_and_values_are_not_sql(self):
         with self.assertRaises(ValueError):
             self.scan('page', columns=['id; DROP TABLE x'])
