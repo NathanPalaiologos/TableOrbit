@@ -2,9 +2,11 @@
 
 [Install TableOrbit](INSTALL.md) before you start.
 
+The reader starts empty. Open file reads your data as a record table. Use Choose index only when you want panel views. Open tables switches between files you opened. See [formats and limits](OPEN_FILES.md).
+
 ## Try the reader
 
-1. Run **TableOrbit: Open Grunfeld Demo** in VS Code.
+1. Open Quick guide and choose Grunfeld, or run **TableOrbit: Open Grunfeld Demo** in VS Code.
 2. Click a value in the table.
 3. Press **Down** to show the next year.
 4. Press **Right** to show years as columns.
@@ -20,10 +22,9 @@ Choose **Variables...** to show a searchable column list. Choose **View → Flat
 
 1. Right-click a CSV, TSV, JSON, JSONL or NDJSON file in VS Code Explorer.
 2. Select **TableOrbit: Explore Data**.
-3. Check the suggested data structure.
-4. Check the entity column, time column and time format.
-5. Select the variables to read.
-6. Select **Open**.
+3. Read the original records. No index is required.
+4. For panel views, select Choose index and review the suggested entity, time and numeric variables.
+5. Select Apply index. Original records returns to all source columns.
 
 For cross-sectional data, select the cross-section structure. No time column is needed. For one time series, give the series an entity name.
 

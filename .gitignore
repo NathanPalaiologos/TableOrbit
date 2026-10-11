@@ -16,3 +16,11 @@ Thumbs.db
 
 # Retired prototype retained locally; restore details are in MANIFEST.md.
 /archive/2026-10-10-retired-prototype/web/
+/archive/2026-10-10-retired-prototype/README.before.md
+
+# Local benchmark output; published measurements are summarized in docs/STRESS_TEST.md.
+/docs/stress-results-2026-10-08.json
+
+# Machine-specific editor settings (keep the shared launch configuration).
+/.vscode/settings.json
+/.vscode/*.local.json

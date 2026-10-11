@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Start with a file entry screen and keep examples in Quick guide.
+- Open original records before optional panel mapping; retain reading positions between open tables.
+- Read BOM-marked UTF-16, common delimiters, Boolean/nested JSON cells, Excel worksheets, Arrow IPC and Stata files.
+- Put Parquet reading in the main workspace and retain its filters between file switches.
+- Verify the updated VSIX in desktop VS Code, including Explorer opening, index selection, worksheet switching and import error recovery.
+- Update installation instructions and stop tracking the retired README snapshot and dated raw benchmark output. Local copies remain available.
+
 - Search Parquet columns and choose figure measures independently of table columns.
 - Keep the last table visible until a new selection succeeds; offer record view after a rejected panel query.
 - Make summary key audits optional and add an expandable cell-value view.

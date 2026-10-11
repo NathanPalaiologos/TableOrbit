@@ -1,12 +1,12 @@
 # TableOrbit
 
-Read panel data across entities, time and variables in VS Code.
+Read local data files in VS Code. Choose entity and time columns when you need a panel.
 
 Switch between a cross-section and a time-series table. Keep the same selected observation when you turn the table. Read large Parquet files through a local query engine.
 
 **Preview 0.2.0.** Install from a VSIX file. TableOrbit is not on the Marketplace. Local installation has been tested on Windows.
 
-![TableOrbit in VS Code, showing Grunfeld firms and three variables for 1935](docs/images/vscode-reader.jpg)
+![TableOrbit browser preview starts with a file entry screen](docs/images/browser-start.jpg)
 
 ## Install in VS Code
 
@@ -14,11 +14,11 @@ Switch between a cross-section and a time-series table. Keep the same selected o
 2. Open the VS Code Command Palette.
 3. Run **Extensions: Install from VSIX...**.
 4. Select `tableorbit-0.2.0.vsix`.
-5. Run **TableOrbit: Open Grunfeld Demo**.
+5. Run **TableOrbit: Explore Data** and choose a file.
 
-The demo works without Python. Parquet requires Python with DuckDB. Figures also require Matplotlib and Seaborn.
+The reader starts with a file entry screen. Examples are available in Quick guide. Text files and examples work without Python. Parquet requires DuckDB; other binary formats use optional Python readers. Figures require Matplotlib and Seaborn.
 
-See the [installation guide](docs/INSTALL.md) for Python setup, File Explorer, editor conflicts and removal. The tested VSIX was about 736 KiB, excluding Python and its packages. Package size can change as documentation and screenshots change.
+See the [installation guide](docs/INSTALL.md) for Python setup, File Explorer, editor conflicts and removal. The latest tested VSIX was 1.05 MiB, excluding Python and its packages. The [local test record](docs/VSIX_LOCAL_TEST.md) identifies that build by checksum. Later documentation or packaging changes can change its size.
 
 ## Read your data
 
@@ -26,8 +26,11 @@ Right-click a supported file in VS Code Explorer. Select **TableOrbit: Explore D
 
 | Input | How it opens |
 |---|---|
-| CSV, TSV, JSON records, JSONL / NDJSON | Imports into memory. Review the suggested entity and time columns. Limit: 10 MB per input. |
+| CSV, TSV, TAB, TXT, PSV, JSON, JSONL / NDJSON | Opens a record table without choosing keys. Text limit: 10 MB. Common delimiters and BOM-marked UTF-16 are supported. |
+| XLSX / XLSM, Feather / Arrow IPC, Stata DTA | Opens through the configured Python. Excel has a worksheet selector. Local source limit: 64 MB; imported values limit: 10 MB. |
 | Parquet file or folder | Reads selected columns and pages through DuckDB. Supports time filters, panel slices, summary statistics and line/bar figures. |
+
+Use Open tables to switch between up to five open tables. Choose index optionally maps a record table to a panel. Failed mapping leaves the records available. See [file opening and format limits](docs/OPEN_FILES.md).
 
 Click inside a panel table before you use these keys:
 
@@ -57,9 +60,9 @@ The CLI accepts JSON Lines for local Parquet inspection, queries, statistics and
 
 ## Current limits
 
-- Parquet queries run in a separate reader. Main-table imports and table assembly still use memory.
-- Each entity–time key must be unique. TableOrbit rejects duplicate keys instead of combining them.
-- Databricks, SQL Server, XLSX and data editing are not supported in this preview.
+- Parquet queries run in an on-demand workspace. Other imports and table assembly use memory.
+- Panel views require unique entity–time keys. Record tables allow repeats and text-only data.
+- Databricks, SQL Server, legacy XLS, SAS/SPSS files and data editing are not supported in this preview.
 - Figure presets provide sizes and styles. They do not certify compliance with a journal or conference.
 - Windows installation has been tested. macOS, Linux and remote extension hosts still need installation tests. vscode.dev is not supported.
 

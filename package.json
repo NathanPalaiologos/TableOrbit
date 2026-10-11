@@ -1,7 +1,7 @@
 {
   "name": "tableorbit",
   "displayName": "TableOrbit",
-  "description": "Read panel data through rotating cross-section and time-series tables.",
+  "description": "Read tables, explore panel data, and query local Parquet files.",
   "repository": {
     "type": "git",
     "url": "https://github.com/NathanPalaiologos/TableOrbit.git"
@@ -60,7 +60,7 @@
       "explorer/context": [
         {
           "command": "panelSpace.openCsv",
-          "when": "resourceExtname =~ /\\.(parquet|csv|tsv|json|jsonl|ndjson)$/",
+          "when": "resourceExtname =~ /\\.(parquet|csv|tsv|tab|txt|psv|json|jsonl|ndjson|xlsx|xlsm|feather|arrow|ipc|dta)$/i",
           "group": "navigation"
         },
         {
@@ -86,7 +86,7 @@
   "scripts": {
     "start": "node scripts/serve.cjs",
     "doctor": "node scripts/tableorbit.mjs doctor",
-    "test": "node --test tests/data.test.mjs tests/reader.test.mjs tests/analysis.test.mjs tests/import.test.mjs tests/summary.test.mjs tests/interaction.test.mjs tests/detect.test.mjs tests/compose.test.mjs tests/flat.test.mjs tests/scanner.test.mjs",
+    "test": "node --test tests/data.test.mjs tests/reader.test.mjs tests/analysis.test.mjs tests/import.test.mjs tests/summary.test.mjs tests/interaction.test.mjs tests/detect.test.mjs tests/compose.test.mjs tests/flat.test.mjs tests/scanner.test.mjs tests/records.test.mjs",
     "stress": "node tests/stress.mjs",
     "package:check": "node scripts/package-check.mjs",
     "vscode:prepublish": "node scripts/package-check.mjs",
@@ -165,13 +165,17 @@
     "docs/USER_GUIDE.md",
     "docs/WRITING.md",
     "docs/VSIX_LOCAL_TEST.md",
-    "docs/stress-results-2026-10-08.json",
     "docs/images/vscode-reader.jpg",
     "docs/images/vscode-series.jpg",
     "docs/images/vscode-figure.jpg",
     "docs/images/vscode-install.jpg",
     "docs/images/vscode-explorer.jpg",
-    "docs/images/README.md"
+    "docs/images/README.md",
+    "web/records.mjs",
+    "scripts/files.cjs",
+    "scripts/read_table.py",
+    "docs/OPEN_FILES.md",
+    "docs/images/browser-start.jpg"
   ],
   "bin": {
     "tableorbit": "./scripts/tableorbit.mjs"

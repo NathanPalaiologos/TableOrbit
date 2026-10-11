@@ -11,9 +11,12 @@ TableOrbit is a desktop VS Code extension. This preview is installed from a `.vs
 | Read the demo or import text data | Desktop VS Code 1.85 or later |
 | Read Parquet | Python with DuckDB 1.5.3 |
 | Draw and export figures | Python with Matplotlib and Seaborn |
+| Read XLSX/XLSM, Arrow/Feather or DTA | Python with openpyxl, pyarrow or pandas, respectively |
 | Run the agent CLI or browser preview | Node.js 20 or later, plus the packages needed for the task |
 
 The VSIX does not include Python or its packages. The extension uses VS Code's Node runtime. Install a separate Node runtime only for the CLI, browser preview or packaging.
+
+Open file reads ordinary files before asking for panel keys. See [supported formats and limits](OPEN_FILES.md). Examples are available from Quick guide and the explicit demo command.
 
 Windows has a [completed installation test](VSIX_LOCAL_TEST.md). Other operating systems and remote hosts are not yet verified.
 
@@ -26,9 +29,9 @@ Get a VSIX from a maintainer you trust, or follow [Build a VSIX](RELEASE.md#buil
 3. Type **Extensions: Install from VSIX...**.
 4. Select the `.vsix` file.
 5. Reload VS Code if it asks you to.
-6. Run **TableOrbit: Open Grunfeld Demo** from the Command Palette.
+6. Run **TableOrbit: Explore Data** from the Command Palette and select a file.
 
-The reader should show firms, years and three variables. This check does not need Python.
+The reader shows source records before you choose an index. CSV and JSON work without Python. For a sample, run **TableOrbit: Open Grunfeld Demo**, or choose an example from Quick guide.
 
 ![VS Code Command Palette with the Install from VSIX command selected](images/vscode-install.jpg)
 
@@ -40,7 +43,7 @@ code --install-extension ./tableorbit-0.2.0.vsix
 
 Choose the file you built if its version differs. VS Code documents both methods in its [extension installation guide](https://code.visualstudio.com/docs/configure/extensions/extension-marketplace#_install-from-a-vsix).
 
-## Set up Python for Parquet and figures
+## Set up Python readers and figures
 
 Use an existing Python environment, or create one for TableOrbit. The commands below install packages into the environment selected by `python`:
 
@@ -54,6 +57,14 @@ Skip the second command if you do not need figures. In that case, check Python w
 
 ```bash
 python -c "import sys, duckdb; print(sys.executable); print(duckdb.__version__)"
+```
+
+Install only the additional readers you need in that same Python environment:
+
+```bash
+python -m pip install openpyxl  # Excel XLSX and XLSM
+python -m pip install pyarrow   # Arrow IPC and Feather
+python -m pip install pandas    # Stata DTA
 ```
 
 1. Copy the Python executable path printed by the check.
@@ -108,6 +119,12 @@ For a remote VS Code session, Python and data must exist on the extension host. 
 
 ## Update or remove
 
-To update, install the replacement VSIX and reload VS Code if requested.
+To update, install the replacement VSIX and run **Developer: Reload Window**. Preview builds can share version 0.2.0. To replace that version from Bash, use:
+
+```bash
+code --install-extension ./tableorbit-0.2.0.vsix --force
+```
+
+Check the artifact checksum in the [local test record](VSIX_LOCAL_TEST.md) when comparing preview builds. Reloading closes the current TableOrbit sessions, so note any index or filter choices first.
 
 To remove, open the Extensions view. Find **TableOrbit**, then select **Uninstall**. Python environments and source data remain on disk.

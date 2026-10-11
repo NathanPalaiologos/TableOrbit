@@ -1,12 +1,13 @@
 # Import detection
 
-The importer now preselects a plausible entity axis, time axis and structure when one interpretation passes its checks. The fields remain editable and importing still requires Open. This is a deterministic suggestion, not a claim that the application knows the research unit.
+Files open as record tables. Choose index then preselects a plausible entity axis, time axis and structure when one interpretation passes its checks. The fields remain editable and mapping requires Apply index. This is a deterministic suggestion, not a claim that the application knows the research unit. See [opening files](OPEN_FILES.md).
 
 ## Flow
 
 ```text
 Source text
   -> parseFile: preserve cell text and JSON number tokens
+  -> record table, without requiring keys
   -> suggestMapping: recognize names, validate formats, check every key
   -> editable import fields and optional column-type details
   -> importTable / buildPanel: validate the chosen mapping and build the reader
@@ -57,7 +58,7 @@ Example: `revenue,firm_id,date` with rows `1.25,001,2024-01-01`, `2.50,001,2024-
 | 0/1 values and integer codes | Reported as representations. The application cannot infer whether averaging them is meaningful. |
 | Percent, currency, grouped or locale-specific numbers | Identified as text representations when recognizable. No automatic stripping of symbols, rescaling or decimal-separator conversion. |
 | Missing values | Numeric fields use the existing blank/NA/NaN/null convention. `-999` remains a number. Profile missing counts use this numeric convention even for columns later selected as entity keys. |
-| Booleans and mixed text | CSV true/false text is described but not converted to numbers. Native JSON booleans remain unsupported. Mixed columns are not numeric measures. |
+| Booleans and mixed text | CSV true/false text is described but not converted to numbers. JSON booleans are retained as true/false text in record tables. Mixed columns are not numeric measures. |
 
 Source-aware JSON parsing matters because a number may already be rounded before a conventional reviver sees it. Modern runtimes supply the original token through `context.source`. The importer uses that token, with a rejection fallback for unsafe unquoted integers in older runtimes. See [MDN JSON.parse](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse). Exact decimal arithmetic remains outside this prototype.
 

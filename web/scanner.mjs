@@ -6,11 +6,21 @@ export function scanAnalysisSpec(base,{action,measures,entity,time,view,period,v
     view,period,variable,timeOffset};
 }
 
-export function setupScanner({vscode,openResult}) {
+export function setupScanner({vscode,openResult,onShow=()=>{},onOpened=()=>{},onClose=()=>{},onBusy=()=>{},canOpen=()=>true}) {
   const $=id=>document.getElementById(id);
   let source=null,offset=0,busy=false,dirty=false,serial=0,axes=null,timeOffset=0,epoch=0,figure=null,lastPage=null,selectedCell={row:0,col:0};
   const numeric=type=>/^(U?(TINY|SMALL|BIG|HUGE)?INT(EGER)?|FLOAT|DOUBLE|DECIMAL\(\d+,\d+\))$/.test(type);
   const pending=new Map();
+  const selections=new Map();
+  let currentPath='';
+  const choiceIds=['lazy-view','lazy-entity','lazy-time','scan-time-column','scan-time-start','scan-time-end','lazy-y','lazy-aggregation','lazy-preset'];
+  function remember(){
+    if(!source || !currentPath)return;
+    selections.set(currentPath,{values:Object.fromEntries(choiceIds.map(id=>[id,$(id).value])),columns:spec('page').columns,filters:filters()});
+    while(selections.size>5)selections.delete(selections.keys().next().value);
+  }
+  function show(){onShow();$('scan-dialog').hidden=false;controls();}
+  function hide(){remember();$('scan-dialog').hidden=true;epoch++;if(busy)transport({action:'cancel'}).catch(()=>{});}
   const token=document.querySelector('meta[name="tableorbit-session"]')?.content;
   async function transport(spec,figureRequest=false) {
     if(vscode) return new Promise((resolve,reject)=>{
@@ -31,6 +41,7 @@ export function setupScanner({vscode,openResult}) {
     return result;
   }
   function controls() {
+    onBusy(busy);
     for(const id of ['scan-inspect','scan-apply','scan-extract','scan-jump','scan-add-filter']) $(id).disabled=busy || (id!=='scan-inspect' && !source);
     $('scan-cancel').hidden=!busy;
     $('scan-prev').disabled=busy || dirty || !lastPage || offset===0 || $('lazy-view').value==='summary';
@@ -130,8 +141,9 @@ export function setupScanner({vscode,openResult}) {
     lastPage=data;dirty=false;$('scan-records').hidden=true;
     const table=document.createElement('table'),head=table.createTHead().insertRow();
     for(const name of data.columns){const th=document.createElement('th');th.textContent=view==='summary'?t(name==='variable'?'variables':name):name;head.append(th);}
+    const body=table.createTBody();
     data.rows.forEach((record,index)=>{
-      const row=table.insertRow();
+      const row=body.insertRow();
       data.columns.forEach((name,col)=>{
         const td=row.insertCell();const value=Array.isArray(record)?record[col]:record[name];
         td.textContent=view==='summary' && name==='absent' && value===null?t('lazyNoKeyAudit'):data.present && col>0 && !data.present[index][col-1]?t('absent'):value===null?t('missing'):String(value);
@@ -148,8 +160,13 @@ export function setupScanner({vscode,openResult}) {
     textFields($('lazy-scope'),[view==='raw'?'':t('lazyAll'),...(data.keyAudit?[`${data.keyAudit.records} ${t('records')}`,`${data.keyAudit.entities} ${t('entities')}`]:[]),`${data.metrics.queryMs.toFixed(1)} ms`]);
   }
   function inspect(filePath) {
+    if(busy)return;
+    remember();
     if(filePath)$('scan-path').value=filePath;
-    if(!$('scan-dialog').open)$('scan-dialog').showModal();
+    const nextPath=$('scan-path').value.trim().replace(/^(["'])(.*)\1$/s,'$2');
+    $('scan-path').value=nextPath;
+    if(!canOpen(nextPath)){$('scan-error').textContent=t('sessionLimit');return;}
+    show();
     return run(async()=>{
       source=null;axes=null;dirty=false;selectedCell={row:0,col:0};clearFigure();$('lazy-scope').textContent='';clearPage();$('scan-meta').textContent='';$('scan-columns').replaceChildren();$('scan-filters').replaceChildren();$('scan-column-search').value='';$('scan-records').hidden=true;$('lazy-audit').checked=false;
       source=await request({action:'inspect',path:$('scan-path').value});offset=0;
@@ -163,15 +180,21 @@ export function setupScanner({vscode,openResult}) {
         const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=c.name;input.checked=index<8;
         label.append(input,document.createTextNode(`${c.name} (${c.type})`));return label;
       }));
-      columnList();measureChoices();await page();
+      currentPath=nextPath;
+      const saved=selections.get(currentPath);
+      if(saved){
+        for(const id of choiceIds)if(id!=='lazy-y')$(id).value=saved.values[id];
+        $('scan-columns').querySelectorAll('input').forEach(input=>{input.checked=saved.columns.includes(input.value);});
+        for(const filter of saved.filters){addFilter();const row=$('scan-filters').lastElementChild;row.children[0].value=filter.column;row.children[1].value=filter.op;row.children[2].value=filter.value;row.children[2].disabled=['null','notnull'].includes(filter.op);}
+      }
+      columnList();measureChoices();if(saved)$('lazy-y').value=saved.values['lazy-y'];await page();onOpened({path:currentPath,name:source.name});
     });
   }
-  $('open-scan').addEventListener('click',()=>{$('scan-dialog').showModal();controls();});
+  $('open-scan').addEventListener('click',show);
   $('scan-inspect').addEventListener('click',()=>inspect());
   $('scan-path').addEventListener('input',()=>{source=null;axes=null;dirty=false;clearFigure();$('lazy-scope').textContent='';clearPage();$('scan-meta').textContent='';$('scan-records').hidden=true;controls();});
   $('scan-cancel').addEventListener('click',()=>{epoch++;request({action:'cancel'}).catch(error=>{$('scan-error').textContent=errorText(error);});});
-  $('scan-close').addEventListener('click',()=>{$('scan-dialog').close();});
-  $('scan-dialog').addEventListener('close',()=>{epoch++;if(busy)request({action:'cancel'}).catch(()=>{});});
+  $('scan-close').addEventListener('click',()=>{hide();onClose();});
   $('scan-options').addEventListener('change',event=>{if(event.target.id!=='scan-column-search')invalidate();});
   $('scan-options').addEventListener('input',event=>{if(event.target.matches('input:not([type=checkbox]):not([type=search])'))invalidate();});
   $('scan-column-search').addEventListener('input',columnList);
@@ -195,7 +218,7 @@ export function setupScanner({vscode,openResult}) {
   }));
   $('scan-extract').addEventListener('click',()=>run(async()=>{
     const result=await request(spec('extract'));if(!result.rows.length)throw new Error(t('scanEmpty'));
-    $('scan-dialog').close();openResult(JSON.stringify(result.rows),`${source.name}.selection.json`);
+    hide();openResult(JSON.stringify(result.rows),`${source.name}.selection.json`);
   }));
   for(const [id,step] of [['lazy-time-prev',-24],['lazy-time-next',24]])$(id).addEventListener('click',()=>run(async()=>{timeOffset=Math.max(0,timeOffset+step);await page();}));
   function selectCell(row,col,reveal=true){
@@ -283,5 +306,5 @@ export function setupScanner({vscode,openResult}) {
     clearPage();
     controls();
   }
-  return {inspect,initial,translate};
+  return {inspect,initial,translate,hide};
 }

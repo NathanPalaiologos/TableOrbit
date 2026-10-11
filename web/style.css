@@ -72,8 +72,7 @@ button.primary-action:disabled{background:var(--header);border-color:var(--line)
 #compose-columns{display:flex;flex-wrap:wrap;gap:8px 16px}
 #compose-preview{overflow:auto;max-height:210px}#compose-preview td{cursor:default}
 #compose-dialog p{font-size:12px;line-height:1.5;color:var(--muted)}#compose-dialog #compose-error{color:var(--error)}
-#scan-dialog{width:min(1150px,96vw);height:94vh;max-height:94vh;display:flex;flex-direction:column;gap:8px;padding:16px}
-#scan-dialog:not([open]){display:none}
+#scan-dialog{min-height:0;flex:1;display:flex;flex-direction:column;gap:8px;padding:12px;overflow:auto}
 #scan-dialog p{margin:0;font-size:12px;line-height:1.4;color:var(--muted)}
 .scan-path,.scan-actions,.scan-pages{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
 .scan-path input{flex:1;min-width:180px;padding:6px;font:inherit;border:1px solid var(--line)}
@@ -145,3 +144,4 @@ body.vscode-reduce-motion #layer-motion{display:none}
 @media(max-width:480px){.toolbar-actions{gap:4px}.toolbar-actions button{padding:3px 6px}.toolbar-actions .selection-control{gap:3px}}
 
 #lazy-controls{margin:0;padding:0 8px;flex-shrink:0}#lazy-controls .scan-time{margin:4px 0}#lazy-figure{max-height:45vh;overflow:auto;flex-shrink:0;font-size:12px}#lazy-figure summary{cursor:pointer}#lazy-preview:empty{display:none}#lazy-preview{background:white;margin-top:8px;text-align:center}#lazy-preview img{max-width:100%;max-height:350px}#scan-table:focus-visible{outline:2px solid var(--accent)}
+#welcome{margin:auto;padding:32px;max-width:650px}#welcome h1{font-size:24px;font-weight:500}#welcome p{color:var(--muted);line-height:1.6}#welcome button{margin:4px 8px 4px 0}#record-workspace{display:flex;flex-direction:column;flex:1;min-height:0;margin:8px 12px;gap:8px}.record-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px}#record-grid{overflow:auto;flex:1;min-height:100px;border:1px solid var(--line)}#record-grid td{max-width:360px;overflow:hidden;text-overflow:ellipsis;cursor:default}#record-grid:focus-visible{outline:2px solid var(--accent)}#record-cell{white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;font:inherit}#back-records{align-self:start;margin:4px 12px}#path-dialog{width:min(580px,94vw)}#local-path{width:100%;margin:8px 0}#path-error{color:var(--error)}#example{max-width:260px}.toolbar .dataset-control{min-width:0}#sheet-control{display:flex;gap:6px}

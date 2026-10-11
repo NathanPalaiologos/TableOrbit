@@ -16,7 +16,7 @@ test('CSV, TSV, JSON and JSONL produce the same records, including zero and miss
     assert.deepEqual(cell(p,'C',2024,'x'),{value:null,absent:true});
   }
   assert.equal(parseFile('id\tx\n"A\tB"\t2','x.tsv').rows[0].id,'A\tB');
-  assert.throws(() => parseFile('[{"id":1,"x":{"nested":2}}]','x.json'),/Nested/);
+  assert.equal(parseFile('[{"id":1,"x":{"nested":2}}]','x.json').rows[0].x,'{"nested":2}');
   assert.throws(() => parseFile('a,b\n1,2','x.xlsx'),/Supported/);
   assert.equal(parseFile('[{"id":"A","constructor":3},{"id":"B"}]','x.json').rows[1].constructor,'');
 });

@@ -18,7 +18,7 @@ function markdownFiles(directory) {
 const files = [
   ...fs.readdirSync(root).filter(name => name.endsWith('.md')).map(name => path.join(root, name)),
   ...markdownFiles(path.join(root, 'docs')),
-  ...markdownFiles(path.join(root, 'archive', '2026-10-10-retired-prototype')),
+  path.join(root, 'archive', '2026-10-10-retired-prototype', 'MANIFEST.md'),
 ];
 const relative = file => path.relative(root, file).split(path.sep).join('/');
 const slug = text => text.toLowerCase().replace(/[^\p{L}\p{N}_ -]/gu, '').replace(/ /g, '-');

@@ -9,7 +9,7 @@
 <body>
   <header class="toolbar">
     <div class="brand"><strong>TableOrbit</strong><button id="open-guide" data-i18n="guide" aria-haspopup="dialog">Quick guide</button></div><span id="filename" hidden></span>
-    <label class="dataset-control"><span data-i18n="dataset">Dataset</span><select id="example" data-i18n-aria="dataset"><option value="grunfeld" data-i18n="exampleGrunfeld">Grunfeld (firms)</option><option value="gapminder" data-i18n="exampleGapminder">Gapminder (countries)</option><option value="nlswork" data-i18n="exampleNls">NLS work (individuals)</option></select></label>
+    <button id="open-file" data-i18n="openFile">Open file…</button><label class="dataset-control"><span data-i18n="openTables">Open tables</span><select id="example" data-i18n-aria="openTables" disabled></select></label><button id="close-table" data-i18n="closeTable" disabled>Close table</button>
     <div class="toolbar-actions">
       <button id="data-menu-trigger" popovertarget="data-menu" aria-haspopup="dialog" data-i18n="dataMenu">Data</button>
       <button id="view-menu-trigger" popovertarget="view-menu" aria-haspopup="dialog" data-i18n="viewMenu">View</button>
@@ -17,8 +17,11 @@
       <button id="settings-menu-trigger" popovertarget="settings-menu" aria-haspopup="dialog" data-i18n="settingsMenu">Settings</button>
       <button id="open-figure" class="primary-action" data-i18n="figure" aria-haspopup="dialog">Create figure</button>
     </div>
-    <input id="file-input" type="file" accept=".csv,.tsv,.json,.jsonl,.ndjson" hidden>
+    <input id="file-input" type="file" accept=".csv,.tsv,.tab,.txt,.psv,.json,.jsonl,.ndjson,.xlsx,.xlsm,.feather,.arrow,.ipc,.dta,.parquet" multiple hidden>
   </header>
+  <section id="welcome"><h1 data-i18n="openYourData">Open your data</h1><p data-i18n="openFirst">Read the table first. Choose entity and time columns when you need a panel.</p><button id="welcome-open" class="primary-action" data-i18n="openFile">Open file…</button><button id="open-path" data-i18n="openPath">Open local path…</button><button id="welcome-guide" data-i18n="guide">Quick guide</button><p data-i18n="supportedInputs">CSV, TSV, JSON, Excel, Arrow, Stata and Parquet</p></section>
+  <section id="record-workspace" hidden><div class="record-tools"><strong data-i18n="scanRecords">Record table</strong><span id="record-count"></span><button id="record-map" data-i18n="chooseIndex">Choose index…</button><label id="sheet-control" hidden><span data-i18n="worksheet">Worksheet</span><select id="sheet-select"></select></label></div><div id="record-grid" tabindex="0" data-i18n-aria="flatKeys"></div><div class="record-tools"><button id="record-prev" data-i18n="previousRows">Previous rows</button><span id="record-page"></span><button id="record-next" data-i18n="nextRows">Next rows</button><button id="record-cols-prev" data-i18n="previousColumns">Previous columns</button><button id="record-cols-next" data-i18n="nextColumns">Next columns</button></div><details id="record-detail"><summary data-i18n="scanCell">Cell value (Enter)</summary><pre id="record-cell"></pre></details></section>
+  <button id="back-records" data-i18n="backSource" hidden>Original records</button>
   <nav class="navigation" data-i18n-aria="navigation">
     <div class="face-controls"><button id="rotate-left" data-i18n-aria="left">←</button><strong id="view-name"></strong><button id="rotate-right" data-i18n-aria="right">→</button></div>
     <div class="layer-controls"><label id="layer-label" for="layer-select"></label><button id="previous-layer" data-i18n-aria="previous">↑</button><select id="layer-select" data-i18n-aria="layer"></select><button id="next-layer" data-i18n-aria="next">↓</button><span id="layer-count"></span></div>
@@ -26,6 +29,7 @@
   </nav>
   <div id="data-menu" popover class="toolbar-menu" role="dialog" data-i18n-aria="dataMenu">
     <button id="open-csv" data-i18n="openFile">Open file…</button>
+    <button id="open-local-path" data-i18n="openPath">Open local path…</button>
     <button id="open-scan" data-i18n="scanTitle" aria-haspopup="dialog">Scan Parquet</button>
     <button id="open-paste" data-i18n="paste">Paste…</button>
     <button id="open-compose" data-i18n="composeTitle" aria-haspopup="dialog">Combine tables</button>
@@ -56,6 +60,7 @@
   <div id="message" role="status" hidden></div>
   <dialog id="guide-dialog" aria-labelledby="guide-title">
     <div class="figure-heading"><h2 id="guide-title" data-i18n="guide">Quick guide</h2><button id="close-guide" data-i18n="close" autofocus>Close</button></div>
+    <section><h3 data-i18n="tryExample">Try an example</h3><button data-demo="grunfeld">Grunfeld</button><button data-demo="gapminder">Gapminder</button><button data-demo="nlswork">NLS work</button></section>
     <section><h3 data-i18n="guideReadTitle">Read the table</h3><p data-i18n="guideRead"></p>
       <dl class="guide-keys"><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd data-i18n="guideLayers"></dd><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd data-i18n="guideRotate"></dd><dt><kbd>Shift</kbd> + <span data-i18n="arrowKeys">arrows</span></dt><dd data-i18n="guideCells"></dd></dl>
       <p data-i18n="guideFocus"></p><p data-i18n="guideCross"></p>
@@ -64,7 +69,7 @@
     <section><h3 data-i18n="guideAnalyzeTitle">Summarize and plot</h3><p data-i18n="guideSummary"></p><p data-i18n="guidePlot"></p></section>
     <details><summary data-i18n="guideImportTitle">Open your own data</summary><p data-i18n="guideImport"></p><p data-i18n="guideSeries"></p></details>
   </dialog>
-  <dialog id="scan-dialog" aria-labelledby="scan-title">
+  <section id="scan-dialog" aria-labelledby="scan-title" hidden>
     <div class="figure-heading"><h2 id="scan-title" data-i18n="scanTitle">Scan Parquet</h2><button id="scan-close" data-i18n="close">Close</button></div>
     <label class="scan-path"><span data-i18n="scanPath">Local file path</span><input id="scan-path" type="text" spellcheck="false" placeholder="C:\data\panel.parquet"><button id="scan-inspect" data-i18n="open">Open</button></label>
     <p data-i18n="scanNote">Reads directly from disk. Opening reads metadata and one page, not the entire file.</p><p id="scan-meta" class="text-fields"></p>
@@ -99,7 +104,8 @@
     <p id="scan-pending" role="status" hidden data-i18n="scanPending">Selection changed. Apply to update the table.</p><p id="scan-error" role="alert"></p><button id="scan-records" type="button" data-i18n="scanBackRecords" hidden>Read as records</button><div id="scan-table" tabindex="0"></div>
     <details id="scan-cell"><summary data-i18n="scanCell">Cell value (Enter)</summary><p id="scan-cell-coordinate"></p><pre id="scan-cell-value"></pre></details>
     <div class="scan-pages"><button id="lazy-time-prev" data-i18n="previousColumns" hidden>Previous columns</button><button id="lazy-time-next" data-i18n="nextColumns" hidden>Next columns</button><button id="scan-prev" data-i18n="previousRows" disabled>Previous rows</button><span id="scan-page-info"></span><button id="scan-next" data-i18n="nextRows" disabled>Next rows</button><label><span data-i18n="scanStartRow">Start row</span><input id="scan-offset" type="number" min="1" step="1" value="1"></label><button id="scan-jump" data-i18n="scanGo" disabled>Go</button></div>
-  </dialog>
+  </section>
+  <dialog id="path-dialog"><form id="path-form"><div class="figure-heading"><h2 data-i18n="openPath">Open local path…</h2><button id="path-cancel" type="button" data-i18n="cancel">Cancel</button></div><label><span data-i18n="scanPath">File or dataset folder</span><input id="local-path" type="text" required spellcheck="false"></label><p data-i18n="pathHint">For large Parquet files, use a local path without copying the file. In VS Code, Open file uses the native file picker.</p><p id="path-error" role="alert"></p><button id="path-submit" type="submit" data-i18n="open">Open</button></form></dialog>
   <dialog id="compose-dialog" aria-labelledby="compose-title">
     <div class="figure-heading"><h2 id="compose-title" data-i18n="composeTitle">Combine tables</h2><button id="compose-close" data-i18n="close">Close</button></div>
     <div class="compose-sources">
@@ -127,7 +133,7 @@
     <p id="paste-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-open" data-i18n="cancel">Cancel</button><button data-i18n="nextStep">Next</button></div>
   </form></dialog>
   <dialog id="mapping-dialog"><form id="mapping-form">
-    <h2 data-i18n="fields">Data fields</h2><p id="import-info"></p><p id="detection-note" role="status"></p>
+    <h2 data-i18n="chooseIndex">Choose index…</h2><p id="import-info"></p><p id="detection-note" role="status"></p>
     <label><span data-i18n="structure">Structure</span><select id="import-mode"><option value="panel" data-i18n="panelMode">Panel (long)</option><option value="cross-section" data-i18n="cross">Cross-section</option><option value="series" data-i18n="seriesMode">One time series</option><option value="wide" data-i18n="wideMode">Time series → panel</option></select></label>
     <label><span data-i18n="entityColumn">Entity column</span><select id="entity-column" required></select></label>
     <label><span data-i18n="timeColumn">Time column</span><select id="time-column" required></select></label>
@@ -139,8 +145,9 @@
     <p id="large-integer-note" data-i18n="largeIntegerNote" hidden></p>
     <details><summary data-i18n="columnTypes">Column types</summary><p data-i18n="typeNote"></p><div id="column-types"></div></details>
     <label id="append-control" hidden><span><input type="checkbox" id="append-series"> <span data-i18n="appendSeries">Add as new entities to the current panel</span></span></label>
+    <label id="append-target-control" hidden><span data-i18n="appendTarget">Add to panel</span><select id="append-target"></select></label>
     <p id="append-note" hidden data-i18n="appendNote">Use identical measure names, units and time format. Dates are aligned by their union, with no filling or resampling.</p>
-    <p id="import-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-import" data-i18n="cancel">Cancel</button><button type="submit" data-i18n="open">Open</button></div>
+    <p id="import-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel-import" data-i18n="cancel">Cancel</button><button type="submit" data-i18n="applyIndex">Apply index</button></div>
   </form></dialog>
   <dialog id="scope-dialog"><form id="scope-form">
     <h2 data-i18n="entities">Entities</h2><div class="dialog-actions"><button type="button" id="scope-all" data-i18n="all">All</button><button type="button" id="scope-clear" data-i18n="clear">Clear</button></div>

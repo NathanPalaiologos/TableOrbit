@@ -1,10 +1,39 @@
 import { parseCSV, buildPanel } from './data.mjs';
 import { MAX_BYTES, MAX_ROWS, MAX_CELLS } from './limits.mjs';
 
+// Keep number tokens separate from strings until each cell is formatted.
+// This preserves numeric types and large IDs inside nested JSON cells too.
+class JSONNumber {
+  constructor(source){this.source=source;}
+}
+function jsonCell(value){
+  if(value instanceof JSONNumber)return value.source;
+  if(value===null || typeof value!=='object')return JSON.stringify(value);
+  if(Array.isArray(value))return '['+value.map(jsonCell).join(',')+']';
+  return '{'+Object.entries(value).map(([key,item])=>JSON.stringify(key)+':'+jsonCell(item)).join(',')+'}';
+}
+
+export function detectDelimiter(text) {
+  const counts=new Map([[',',0],['\t',0],[';',0],['|',0]]);
+  let quoted=false;
+  for(let i=0;i<text.length;i++) {
+    const c=text[i];
+    if(c==='"') { if(quoted && text[i+1]==='"')i++;else quoted=!quoted; }
+    else if(!quoted) { if(c==='\r'||c==='\n')break;if(counts.has(c))counts.set(c,counts.get(c)+1); }
+  }
+  return [...counts].sort((a,b)=>b[1]-a[1])[0][0];
+}
+
+export function decodeText(bytes) {
+  const encoding=bytes[0]===255 && bytes[1]===254?'utf-16le':bytes[0]===254 && bytes[1]===255?'utf-16be':'utf-8';
+  try{return new TextDecoder(encoding,{fatal:true}).decode(bytes);}
+  catch{throw new Error('Unsupported text encoding. Save the file as UTF-8 or UTF-16 with a BOM.');}
+}
+
 export function parseFile(text, name) {
   if (new TextEncoder().encode(text).length > MAX_BYTES) throw new Error('File limit: 10 MB.');
   const extension = name.split('.').at(-1).toLowerCase();
-  if (extension === 'csv' || extension === 'tsv') return parseCSV(text, extension === 'tsv' ? '\t' : ',');
+  if (['csv','tsv','tab','txt','psv'].includes(extension)) return parseCSV(text, ['tsv','tab'].includes(extension) ? '\t' : detectDelimiter(text));
   if (!['json', 'jsonl', 'ndjson'].includes(extension)) throw new Error('Supported formats: CSV, TSV, JSON, JSONL, NDJSON.');
   text = text.replace(/^\uFEFF/, '');
   // Retain numeric tokens as text before key selection. Modern runtimes expose
@@ -12,23 +41,24 @@ export function parseFile(text, name) {
   const decode = source => JSON.parse(source, (key,value,context) => {
     if (typeof value !== 'number') return value;
     if (!Number.isFinite(value)) throw new Error('Nonfinite JSON number.');
-    if (context?.source) return context.source;
+    if (context?.source) return new JSONNumber(context.source);
     if (Number.isInteger(value) && !Number.isSafeInteger(value)) throw new Error('Quote large JSON numbers as strings in this browser.');
-    return value;
+    return new JSONNumber(String(value));
   });
-  const values = extension === 'json' ? decode(text) : text.split(/\r?\n/).filter(line => line.trim()).map(decode);
-  if (!Array.isArray(values) || !values.length || values.length > MAX_ROWS) throw new Error('Expected 1–100,000 JSON records.');
+  const decoded = extension === 'json' ? decode(text) : text.split(/\r?\n/).filter(line => line.trim()).map(decode);
+  const values=extension==='json' && decoded && !Array.isArray(decoded) && typeof decoded==='object' && !(decoded instanceof JSONNumber)?[decoded]:decoded;
+  if (!Array.isArray(values) || values.length > MAX_ROWS) throw new Error('Expected up to 100,000 JSON records.');
   const headers = [];
   for (const row of values) {
-    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('Each JSON record must be an object.');
+    if (!row || typeof row !== 'object' || Array.isArray(row) || row instanceof JSONNumber) throw new Error('Each JSON record must be an object.');
     for (const [key, value] of Object.entries(row)) {
       if (!key.trim()) throw new Error('Column names cannot be empty.');
-      if (value !== null && !['string','number'].includes(typeof value)) throw new Error(`Nested objects, arrays and booleans are unsupported: ${key}`);
       if (typeof value === 'number' && !Number.isFinite(value)) throw new Error(`Nonfinite JSON number: ${key}`);
       if (!headers.includes(key)) headers.push(key);
     }
   }
-  return {headers, rows:values.map(row => Object.fromEntries(headers.map(key => [key, !Object.hasOwn(row,key) || row[key] == null ? '' : String(row[key])])))};
+  if(headers.length*values.length>MAX_CELLS)throw new Error('Table exceeds 2,000,000 cells.');
+  return {headers, rows:values.map(row => Object.fromEntries(headers.map(key => [key, !Object.hasOwn(row,key) || row[key] == null ? '' : typeof row[key]==='object'?jsonCell(row[key]):String(row[key])])))};
 }
 
 // Wide-series columns are entities measuring ONE common variable, explicitly chosen by the user.

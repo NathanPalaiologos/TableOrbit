@@ -26,6 +26,8 @@ For version 0.2.0, the output is `tableorbit-0.2.0.vsix` in the repository root.
 
 `package.json` lists each file to include. Tests, local archives, logs and private Parquet sources are excluded. Documentation screenshots are included so the packaged README can display them.
 
+The Git repository also excludes built VSIX files, test outputs, machine-specific settings, the retired README snapshot and the dated raw benchmark JSON. Keep public fixtures required by tests and the shared `.vscode/launch.json`. New local checks should write to `tests/output/`. Removing a file from Git tracking leaves earlier commits unchanged.
+
 The manual **Package preview extension** GitHub Actions workflow also creates a VSIX artifact. It does not create a GitHub release or publish to the Marketplace. A repository maintainer can start it from the Actions tab.
 
 ## Run the browser preview
@@ -68,17 +70,18 @@ Reader changes have focused Node tests in `tests/`. Parquet changes have `tests/
 
 Before distributing a VSIX, install that exact file and check:
 
-1. Open the Grunfeld demo.
-2. Open a Parquet file from Explorer.
-3. Query a panel slice and summary.
-4. Export a figure to a chosen folder.
-5. Run the installed agent CLI.
+1. Use Explorer's **TableOrbit: Explore Data** action on CSV, JSON, XLSX, Feather and DTA fixtures. Confirm that source records open before index selection.
+2. Choose an index on a panel fixture. Open another file and return to the first table. Check its index and reading position.
+3. Switch Excel worksheets. Try a malformed file, then a valid file. Check that failure does not replace the current table.
+4. Open a Parquet file from Explorer. Query a panel slice and summary.
+5. Export a figure to a chosen folder and run the installed agent CLI.
+6. Open a demo explicitly through the Quick guide.
 
 Use [VSIX_LOCAL_TEST.md](VSIX_LOCAL_TEST.md) as the record of the previous test. New source or documentation edits do not update an already-built VSIX.
 
 ## Release status
 
-Version 0.2.0 was packaged and installed on Windows on 2026-10-10. Explorer opening, summary statistics, figure export and the installed CLI passed. The artifact was 753,277 bytes. This is the size of that tested artifact, before the new documentation screenshots.
+The updated 0.2.0 preview was packaged and installed on Windows on 2026-10-10. The artifact is 1,104,769 bytes (1.05 MiB). Explorer opening across six file formats, index selection, Excel worksheet switching, table switching, error recovery and the installed CLI passed. The [local test record](VSIX_LOCAL_TEST.md) identifies the tested package by checksum and separates this run from the earlier 753,277-byte build.
 
 `tableorbit-local` is a local publisher placeholder. It is not a verified Marketplace publisher. Marketplace publication remains a separate release decision.
 

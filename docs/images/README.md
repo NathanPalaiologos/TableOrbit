@@ -1,5 +1,7 @@
 # Screenshots
 
+`browser-start.jpg` shows the updated browser entry screen on 2026-10-10. It contains no loaded dataset. It is a source-preview capture, not an installed VSIX capture.
+
 Captured from the installed TableOrbit 0.2.0 extension on 2026-10-10. Host: VS Code 1.141.0 on Windows, using the user's dark theme.
 
 | File | Content |

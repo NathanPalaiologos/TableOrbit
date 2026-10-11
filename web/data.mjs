@@ -30,11 +30,12 @@ export function parseCSV(text, delimiter = ',') {
   if (quoted) throw new Error('CSV 中有未闭合的引号。');
   row.push(field);
   if (row.some(value => value.trim() !== '')) rows.push(row);
-  if (rows.length < 2) throw new Error('CSV 需要表头和至少一行数据。');
+  if (!rows.length) throw new Error('CSV needs a header.');
   const headers = rows.shift().map(value => value.trim());
   if (headers.some(value => !value) || new Set(headers).size !== headers.length) throw new Error('列名不能为空或重复。');
   if (rows.some(values => values.length !== headers.length)) throw new Error('CSV 各行的列数不一致。');
   if (rows.length > MAX_ROWS) throw new Error('Limit: 100,000 records.');
+  if (rows.length * headers.length > MAX_CELLS) throw new Error('Table exceeds 2,000,000 cells.');
   return { headers, rows: rows.map(values => Object.fromEntries(headers.map((name, index) => [name, values[index]]))) };
 }
 

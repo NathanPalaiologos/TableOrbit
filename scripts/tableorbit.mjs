@@ -6,6 +6,7 @@ import {statSync} from 'node:fs';
 import {createInterface} from 'node:readline';
 import scannerModule from './scan.cjs';
 import figureModule from './figure.cjs';
+import filesModule from './files.cjs';
 
 const command = process.argv[2] ?? 'help';
 if (command === 'agent') {
@@ -42,7 +43,7 @@ if (command === 'agent') {
   if(portIndex>=0){const port=Number(process.argv[portIndex+1]);if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('Invalid port.');process.env.PORT=String(port);}
   process.env.TABLEORBIT_OPEN_FILE=path.resolve(file);
   const stat=statSync(process.env.TABLEORBIT_OPEN_FILE);
-  if(!stat.isDirectory() && (!stat.isFile() || path.extname(file).toLowerCase()!=='.parquet'))throw new Error('Choose a local Parquet file or dataset folder.');
+  if(!stat.isDirectory() && (!stat.isFile() || !filesModule.FORMATS.includes(path.extname(file).slice(1).toLowerCase())))throw new Error('Choose a supported data file or Parquet dataset folder.');
   await import('./serve.cjs');
 } else if (command === 'doctor') {
   const probe = (file,args) => {

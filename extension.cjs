@@ -4,19 +4,16 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { renderFigure } = require('./scripts/figure.cjs');
 const { createScanner } = require('./scripts/scan.cjs');
+const {readData,FORMATS}=require('./scripts/files.cjs');
 
 function activate(context) {
   const root = path.join(context.extensionPath, 'web');
   async function readCsv(uri) {
     if(uri.scheme!=='file')throw new Error('TableOrbit needs a filesystem path on the extension host.');
-    if((await vscode.workspace.fs.stat(uri)).type & vscode.FileType.Directory)return {parquet:uri.fsPath};
-    if(path.extname(uri.fsPath).toLowerCase()==='.parquet') return {parquet:uri.fsPath};
-    const stat = await vscode.workspace.fs.stat(uri);
-    if (stat.size > 10_000_000) throw new Error('Text imports are limited to 10 MB. Use Scan Parquet for a larger Parquet source.');
-    return {text:Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8'),name:path.basename(uri.fsPath)};
+    return readData(uri.fsPath,{python:vscode.workspace.getConfiguration('panelSpace').get('pythonPath')||process.env.PANEL_SPACE_PYTHON||'python'});
   }
   async function chooseCsv() {
-    const files = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { Data: ['parquet', 'csv', 'tsv', 'json', 'jsonl', 'ndjson'] } });
+    const files = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { Data: FORMATS } });
     if (!files?.length) return null;
     return readCsv(files[0]);
   }
@@ -29,14 +26,18 @@ function activate(context) {
     const nonce = crypto.randomBytes(18).toString('base64');
     const base = panel.webview.asWebviewUri(vscode.Uri.file(root)).toString() + '/';
     panel.onDidDispose(()=>scanner.close());
-    const boot = JSON.stringify({ demo: fs.readFileSync(path.join(root,'data','grunfeld.csv'),'utf8'), csv: initial?.text, name: initial?.name,parquet:initial?.parquet }).replace(/</g,'\\u003c');
+    const boot = JSON.stringify({initial:initial?.demoSelected?undefined:initial,demoSelected:initial?.demoSelected}).replace(/</g,'\\u003c');
     let html = fs.readFileSync(path.join(root,'index.html'),'utf8');
     html = html.replace('<head>', `<head><base href="${base}"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${panel.webview.cspSource} data:; style-src ${panel.webview.cspSource} 'unsafe-inline'; script-src ${panel.webview.cspSource} 'nonce-${nonce}'; connect-src ${panel.webview.cspSource};">`);
     html = html.replace('<script type="module"', `<script nonce="${nonce}">window.__PANEL_BOOT__=${boot};</script><script nonce="${nonce}" type="module"`);
     panel.webview.html = html;
     panel.webview.onDidReceiveMessage(async message => {
       try {
-        if(message?.type === 'openCsv') { const csv=await chooseCsv(); if(csv) panel.webview.postMessage(csv.parquet ? {type:'parquet',path:csv.parquet} : {type:'csv',...csv}); }
+        if(message?.type === 'openCsv') { const result=await chooseCsv(); if(result) panel.webview.postMessage({type:'fileOpened',result}); }
+        if(message?.type==='openData') {
+          try{const result=await readData(message.input.path,{sheet:message.input.sheet,python:vscode.workspace.getConfiguration('panelSpace').get('pythonPath')||process.env.PANEL_SPACE_PYTHON||'python'});panel.webview.postMessage({type:'fileResult',id:message.id,result});}
+          catch(error){panel.webview.postMessage({type:'fileResult',id:message.id,error:error.message});}
+        }
         if(message?.type === 'scan') {
           try {const result=await scanner.request(message.spec);panel.webview.postMessage({type:'scanResult',id:message.id,result});}
           catch(error){panel.webview.postMessage({type:'scanResult',id:message.id,error:error.message});}
@@ -77,7 +78,7 @@ function activate(context) {
     output.appendLine(JSON.stringify({requestId:1,spec:{action:'capabilities'}}));
     output.show();
   }));
-  context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openDemo' ,()=>open()));
+  context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openDemo' ,()=>open({demoSelected:true})));
   context.subscriptions.push(vscode.commands.registerCommand('panelSpace.openParquetFolder',async uri=>{
     try {
       if(!uri){const folders=await vscode.window.showOpenDialog({canSelectMany:false,canSelectFiles:false,canSelectFolders:true});uri=folders?.[0];}

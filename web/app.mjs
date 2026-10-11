@@ -1,11 +1,12 @@
 import {flatRecords,flatColumns,flatValues} from './flat.mjs';
 import {setupToolbar} from './toolbar.mjs';
-import { parseCSV, buildPanel, numericColumns, cell, columnTypes } from './data.mjs';
+import { numericColumns, cell, columnTypes } from './data.mjs';
 import { faceIndex, isCrossSection, layerValues, moveLayer, coordinateAt, variableIndexes } from './reader.mjs';
 import { METHODS, aggregateAt, viewRows, summaryTable, SUMMARY_COLUMNS } from './analysis.mjs';
 import { t, setLanguage, getLanguage, translateDOM, errorText, textFields } from './i18n.mjs';
 import { setupFigures } from './figures.mjs';
-import { parseFile, importTable, combinePanels } from './import.mjs';
+import { parseFile, importTable, combinePanels, decodeText } from './import.mjs';
+import {setupRecords} from './records.mjs';
 import { parseTime, timeLabel } from './time.mjs';
 import { MAX_BYTES, PAGE_ROWS, PAGE_COLUMNS } from './limits.mjs';
 import { readerCommand, moveCell, acceptsRepeat } from './interaction.mjs';
@@ -19,17 +20,22 @@ const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : nul
 setupToolbar({vscode});
 const state = { turn:0, entity:0, time:0, variable:0, aggregation:'none', included:[] };
 let flatMode=false, flatCell={row:0,column:0};
-let summaryMode = false, dataTurn = 0, rowPage = 0, columnPage = 0, datasetId = 'grunfeld', importSerial = 0;
+let summaryMode = false, dataTurn = 0, rowPage = 0, columnPage = 0, datasetId = '', importSerial = 0;
+let activeKind='empty',opening=false,scannerBusy=false;
 const sessions = new Map();
 let scopeDraft = new Set();
-let panel, demoText, parsedImport, importName, currentName, messageTimer, rotationTimer, layerTimer;
+let panel, parsedImport, importName, currentName, rotationTimer, layerTimer;
 let rotatingNow = false, lastRepeatAt = 0;
 let importSuggestion = null, mappingEdited = false, rowIdOptionValue = '';
 let importTypes = [];
 const faces = [...document.querySelectorAll('.face')];
 const figureUI = setupFigures({getContext:() => ({panel, state:flatMode?{...state,aggregation:'none'}:state, name:currentName}), vscode});
 const composerUI = setupComposer({openResult:prepareImport});
-const scannerUI = setupScanner({vscode,openResult:prepareImport});
+const recordsUI=setupRecords();
+const scannerUI = setupScanner({vscode,openResult:prepareImport,onShow:()=>{saveActive();showWorkspace('scan');},onOpened:opened=>{
+  const id='path:'+opened.path;
+  sessions.set(id,{...sessions.get(id),name:opened.name,path:opened.path,kind:'scan'});datasetId=id;refreshSessions();
+},onClose:()=>{if(sessions.get(datasetId)?.kind==='scan')closeTable();else activateSession(datasetId);},onBusy:value=>{scannerBusy=value;refreshSessions();},canOpen:path=>sessions.size<5||sessions.has('path:'+path)});
 try { setLanguage(localStorage.getItem('panel-space-language')); } catch { /* storage is optional */ }
 
 function applyLanguage() {
@@ -43,6 +49,8 @@ function applyLanguage() {
   figureUI.translate();
   composerUI.translate();
   scannerUI.translate();
+  recordsUI.render();
+  refreshSessions();
 }
 $('language').addEventListener('change', () => {
   setLanguage($('language').value);
@@ -52,28 +60,119 @@ $('language').addEventListener('change', () => {
 applyLanguage();
 $('open-guide').addEventListener('click', () => $('guide-dialog').showModal());
 $('close-guide').addEventListener('click', () => $('guide-dialog').close());
+$('welcome-guide').addEventListener('click',()=>$('guide-dialog').showModal());
 
 function message(text) {
   $('message').textContent = text;
   $('message').hidden = false;
-  clearTimeout(messageTimer);
-  messageTimer = setTimeout(() => { $('message').hidden = true; }, 5000);
 }
+const fileRequests=new Map();let fileRequestSerial=0;
+async function hostOpen(input){
+  if(vscode)return new Promise((resolve,reject)=>{
+    const id=++fileRequestSerial;const timer=setTimeout(()=>{fileRequests.delete(id);reject(new Error('File import timed out.'));},35000);
+    fileRequests.set(id,{resolve,reject,timer});vscode.postMessage({type:'openData',id,input});
+  });
+  const response=await fetch(input.base64?'/api/import':'/api/open',{method:'POST',headers:{'Content-Type':'application/json','X-TableOrbit-Session':document.querySelector('meta[name="tableorbit-session"]')?.content??''},body:JSON.stringify(input)});
+  const result=await response.json();if(!response.ok||result.error)throw new Error(result.error||'Could not open file.');return result;
+}
+async function withOpening(action){
+  if(opening||scannerBusy)return;opening=true;refreshSessions();message(t('fileOpening'));
+  try{await action();$('message').hidden=true;}
+  catch(error){message(errorText(error));}
+  finally{opening=false;refreshSessions();}
+}
+async function openPayload(payload){
+  const id=payload.parquet||payload.path?'path:'+(payload.parquet||payload.path):undefined;
+  if(sessions.size>=5 && !sessions.has(id))throw new Error(t('sessionLimit'));
+  if(payload.parquet){await scannerUI.inspect(payload.parquet);return;}
+  const table=payload.table??parseFile(payload.text,payload.name);
+  installRecords(table,payload.name,payload,id);
+}
+for(const id of ['open-path','open-local-path'])$(id).addEventListener('click',()=>{$('path-error').textContent='';$('path-dialog').showModal();});
+$('path-cancel').addEventListener('click',()=>$('path-dialog').close());
+$('path-form').addEventListener('submit',event=>{
+  event.preventDefault();withOpening(async()=>{
+    $('path-submit').disabled=true;
+    try{await openPayload(await hostOpen({path:$('local-path').value.trim()}));$('path-dialog').close();}
+    catch(error){$('path-error').textContent=errorText(error);throw error;}
+    finally{$('path-submit').disabled=false;}
+  });
+});
+$('sheet-select').addEventListener('change',()=>withOpening(async()=>{
+  const id=datasetId,entry=sessions.get(id),source=entry.source,sheet=$('sheet-select').value;
+  try{
+    let input={path:source.path,sheet};
+    if(source.file){const bytes=new Uint8Array(await source.file.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));input={name:source.name,base64:btoa(binary),sheet};}
+    const payload=await hostOpen(input);installRecords(payload.table,payload.name,{...payload,file:source.file},id);
+  }catch(error){$('sheet-select').value=source.sheet;throw error;}
+}));
+function refreshSessions(){
+  const entries=[...sessions];
+  $('example').replaceChildren(...entries.map(([id,entry],index)=>{
+    const repeated=entries.filter(([,other])=>other.name===entry.name).length>1;
+    const folder=entry.source?.path?.split(/[\\/]/).at(-2);
+    const option=new Option(entry.name+(repeated?` (${folder??index+1})`:''),id);
+    option.title=entry.source?.path??entry.path??entry.name;return option;
+  }));
+  $('example').closest('label').hidden=!sessions.size;$('close-table').hidden=!sessions.size;
+  $('example').value=datasetId;$('example').disabled=opening||scannerBusy||!sessions.size;
+  $('close-table').disabled=opening||scannerBusy||!sessions.size;
+  for(const id of ['open-file','welcome-open','open-csv'])$(id).disabled=opening||scannerBusy;
+}
+function saveActive(){
+  const entry=sessions.get(datasetId);
+  if(activeKind==='panel' && entry)entry.viewState={state:structuredClone(state),summaryMode,flatMode,flatCell:{...flatCell},dataTurn,rowPage,columnPage,scope:$('summary-scope').value};
+}
+function showWorkspace(kind){
+  activeKind=kind;
+  $('welcome').hidden=kind!=='empty';$('record-workspace').hidden=kind!=='records';$('scan-dialog').hidden=kind!=='scan';
+  $('reader').hidden=kind!=='panel';
+  for(const selector of ['.navigation','.selection-bar','footer','#table-pages','#summary-note'])document.querySelector(selector).hidden=kind!=='panel';
+  for(const id of ['view-menu-trigger','open-variables','open-figure','export-button'])$(id).disabled=kind!=='panel';
+  for(const id of ['view-menu-trigger','open-variables','open-figure'])$(id).hidden=kind==='empty';
+  if(kind!=='panel')$('variable-count').textContent='';
+  $('back-records').hidden=kind!=='panel'||!sessions.get(datasetId)?.table;
+}
+function activateSession(id){
+  saveActive();scannerUI.hide();
+  datasetId=id;const entry=sessions.get(id);refreshSessions();
+  if(!entry){panel=null;showWorkspace('empty');return;}
+  if(entry.kind==='scan'){scannerUI.inspect(entry.path);return;}
+  if(entry.kind==='panel'){
+    panel=entry.panel;currentName=entry.name;showWorkspace('panel');
+    if(entry.viewState){const saved=entry.viewState;Object.assign(state,structuredClone(saved.state));({summaryMode,flatMode,flatCell,dataTurn,rowPage,columnPage}=saved);$('summary-scope').value=saved.scope;}
+    render();return;
+  }
+  panel=null;currentName=entry.name;showWorkspace('records');recordsUI.show(entry.table,entry.position);
+  $('record-map').disabled=!entry.table.rows.length;
+  $('sheet-control').hidden=!entry.source?.sheets?.length;
+  $('sheet-select').replaceChildren(...(entry.source?.sheets??[]).map(name=>new Option(name,name)));
+  $('sheet-select').value=entry.source?.sheet??'';
+}
+function closeTable(){
+  scannerUI.hide();sessions.delete(datasetId);datasetId='';activateSession([...sessions.keys()].at(-1)??'');
+}
+$('close-table').addEventListener('click',closeTable);
+function installRecords(table,name,source={},id=`import-${++importSerial}`){
+  if(!sessions.has(id)&&sessions.size>=5)throw new Error(t('sessionLimit'));
+  saveActive();sessions.set(id,{name,table,source,kind:'records',position:{row:0,column:0}});activateSession(id);
+}
+function prepareImport(text,name,defaults={}){
+  try{installRecords(parseFile(text,name),name);$('open-dialog').close();}
+  catch(error){if($('open-dialog').open)$('paste-error').textContent=errorText(error);else message(errorText(error));}
+}
+$('record-map').addEventListener('click',()=>{const entry=sessions.get(datasetId);prepareMapping(entry.table,entry.name,entry.mapping??{});});
+$('back-records').addEventListener('click',()=>{saveActive();sessions.get(datasetId).kind='records';activateSession(datasetId);});
 function installPanel(next, name, id = `import-${++importSerial}`) {
+  if(!sessions.has(id)&&sessions.size>=5)throw new Error(t('sessionLimit'));
+  saveActive();
   panel = next;
   currentName = name;
   datasetId = id;
   summaryMode = false; flatMode=false; flatCell={row:0,column:0}; dataTurn = 0; rowPage = 0; columnPage = 0;
   $('summary-scope').value = 'all';
-  sessions.set(id, {panel:next,name});
-  if (![...$('example').options].some(option => option.value === id)) $('example').add(new Option(name,id));
-  $('example').value = id;
-  // Bound retained in-memory datasets. Bundled examples can always be loaded again.
-  while (sessions.size > 5) {
-    const oldest = sessions.keys().next().value;
-    sessions.delete(oldest);
-    if (oldest.startsWith('import-')) [...$('example').options].find(o => o.value === oldest)?.remove();
-  }
+  sessions.set(id, {...sessions.get(id),panel:next,name,kind:'panel'});
+  showWorkspace('panel');refreshSessions();
   Object.assign(state, {turn:0, entity:0, time:0, variable:0, aggregation:'none', included:panel.entities.map((_, i) => i),visibleVariables:panel.variables.map((_,i) => i)});
   finishRotation();
   stopLayerMotion();
@@ -83,6 +182,7 @@ function installPanel(next, name, id = `import-${++importSerial}`) {
   // Opening a new file resets immediately; only intentional rotations animate.
   $('cube').style.transition = 'none';
   render();
+  saveActive();
   void $('cube').offsetWidth;
   $('cube').style.transition = '';
   if (!document.activeElement?.matches('select,input,textarea,button')) $('reader').focus();
@@ -354,9 +454,9 @@ $('toggle-flat').addEventListener('click',()=>{
   render();$('reader').focus({preventScroll:true});
 });
 
-function prepareImport(text, name, defaults = {}) {
+function prepareMapping(table, name, defaults = {}) {
   try {
-    parsedImport = parseFile(text, name);
+    parsedImport = table;
     importName = name;
     importTypes = columnTypes(parsedImport);
     textFields($('import-info'),[name,`${parsedImport.rows.length} ${t('rowCount')}`]);
@@ -369,10 +469,10 @@ function prepareImport(text, name, defaults = {}) {
       $(id).replaceChildren(placeholder,...parsedImport.headers.map(name => new Option(name, name)));
     }
     $('entity-column').add(new Option(t('rowIdOption'),rowIdOptionValue));
-    $('entity-column').value = suggested.entity ?? '';
-    $('time-column').value = suggested.time ?? '';
+    $('entity-column').value = defaults.entity ?? suggested.entity ?? '';
+    $('time-column').value = defaults.time ?? suggested.time ?? '';
     $('import-mode').value = defaults.mode ?? suggested.mode ?? 'panel';
-    $('time-format').value = suggested.timeFormat ?? '';
+    $('time-format').value = defaults.timeFormat ?? suggested.timeFormat ?? '';
     $('entity-name').value = name.replace(/\.[^.]+$/, '');
     $('measure-name').value = defaults.measure ?? '';
     $('append-series').checked = false;
@@ -397,7 +497,12 @@ function updateImportVariables() {
   $('entity-column').required = hasEntity;
   $('entity-column').options[$('entity-column').options.length-1].disabled = mode !== 'cross-section';
   if (mode !== 'cross-section' && $('entity-column').value === rowIdOptionValue) $('entity-column').value = '';
-  const canAppend = ['series','wide'].includes(mode) && panel?.kind !== 'cross-section';
+  const targets=[...sessions].filter(([id,entry])=>id!==datasetId && entry.panel && entry.panel.kind!=='cross-section');
+  const canAppend = ['series','wide'].includes(mode) && targets.length>0;
+  const previousTarget=$('append-target').value;
+  $('append-target').replaceChildren(...targets.map(([id,entry])=>new Option(entry.name,id)));
+  if(targets.some(([id])=>id===previousTarget))$('append-target').value=previousTarget;
+  $('append-target-control').hidden=!canAppend;
   $('append-control').hidden = !canAppend;
   $('append-note').hidden = !canAppend;
   if (!canAppend) $('append-series').checked = false;
@@ -441,58 +546,62 @@ $('mapping-form').addEventListener('submit', event => {
     let next = importTable(parsedImport, {mode:$('import-mode').value, entity:$('entity-column').value, time:$('time-column').value, variables,
       timeFormat:$('time-format').value, entityName:$('entity-name').value, measure:$('measure-name').value,rowId:$('import-mode').value === 'cross-section' && $('entity-column').value === rowIdOptionValue});
     const append = $('append-series').checked;
-    if (append) next = combinePanels(panel, next);
+    const target=sessions.get($('append-target').value);
+    if (append){next = combinePanels(target.panel, next);if(sessions.size>=5)throw new Error(t('sessionLimit'));}
     $('mapping-dialog').close();
-    installPanel(next, append ? `${currentName} + ${importName}` : importName);
+    if(sessions.has(datasetId))sessions.get(datasetId).mapping={mode:$('import-mode').value,entity:$('entity-column').value,time:$('time-column').value,timeFormat:$('time-format').value};
+    installPanel(next, append ? `${target.name} + ${importName}` : importName,append?undefined:datasetId||undefined);
     parsedImport = null;
   } catch (error) { $('import-error').textContent = errorText(error); }
 });
 $('open-paste').addEventListener('click', () => { $('paste-error').textContent = ''; $('open-dialog').showModal(); });
-$('open-csv').addEventListener('click', () => vscode ? vscode.postMessage({type:'openCsv'}) : $('file-input').click());
+for(const id of ['open-csv','open-file','welcome-open'])$(id).addEventListener('click',()=>vscode?vscode.postMessage({type:'openCsv'}):$('file-input').click());
 $('cancel-open').addEventListener('click', () => $('open-dialog').close());
 $('paste-form').addEventListener('submit', event => {
   event.preventDefault();
   prepareImport($('paste-data').value, `pasted.${$('paste-format').value}`);
 });
-$('file-input').addEventListener('change', async event => {
-  const file = event.target.files[0];
-  if (file) {
-    if (file.size > MAX_BYTES) message(t('tooLarge'));
-    else prepareImport(await file.text(), file.name);
-  }
-  event.target.value = '';
-});
-async function loadDemo() {
-  const example = $('example').value;
-  const initiatedBySwitcher = document.activeElement === $('example');
-  $('example').disabled = true;
+async function openBrowserFiles(files){
+  for(const file of files)await withOpening(async()=>{
+    if(sessions.size>=5)throw new Error(t('sessionLimit'));
+    if(file.name.toLowerCase().endsWith('.parquet')){$('local-path').value='';$('local-path').placeholder=file.name;$('path-error').textContent=t('pathHint');$('path-dialog').showModal();$('local-path').focus();return;}
+    if(file.size>MAX_BYTES)throw new Error(t('tooLarge'));
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    if(/\.(xlsx|xlsm|feather|arrow|ipc|dta)$/i.test(file.name)){
+      let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
+      const payload=await hostOpen({name:file.name,base64:btoa(binary)});
+      installRecords(payload.table,payload.name,{...payload,file});
+    }else installRecords(parseFile(decodeText(bytes),file.name),file.name);
+  });
+}
+$('file-input').addEventListener('change',event=>{const files=[...event.target.files];event.target.value='';openBrowserFiles(files);});
+document.addEventListener('dragover',event=>{if(!vscode && event.dataTransfer?.types.includes('Files'))event.preventDefault();});
+document.addEventListener('drop',event=>{if(!vscode && event.dataTransfer?.files.length){event.preventDefault();openBrowserFiles([...event.dataTransfer.files]);}});
+async function loadDemo(example) {
+  $('guide-dialog').close();
   try {
     if (sessions.has(example)) {
-      const saved = sessions.get(example);
-      installPanel(saved.panel,saved.name,example);
-    } else if (example !== 'grunfeld') {
-      const filename = {gapminder:'gapminder.tsv',nlswork:'nlswork.csv'}[example];
+      activateSession(example);
+    } else {
+      if(sessions.size>=5)throw new Error(t('sessionLimit'));
+      const filename = {grunfeld:'grunfeld.csv',gapminder:'gapminder.tsv',nlswork:'nlswork.csv'}[example];
       const response = await fetch(new URL(`./data/${filename}`, import.meta.url));
       if (!response.ok) throw new Error('Could not load example data.');
       const parsed = parseFile(await response.text(),filename);
       const mapping = {
+        grunfeld:{entity:'firm',time:'year',variables:['invest','value','capital']},
         gapminder:{entity:'country',time:'year',variables:['lifeExp','pop','gdpPercap']},
         nlswork:{entity:'idcode',time:'year',variables:numericColumns(parsed,['idcode','year'])}
       }[example];
-      installPanel(importTable(parsed,mapping),filename,example);
-    } else {
-      const parsed = parseCSV(demoText);
-      installPanel(buildPanel(parsed, 'firm', 'year', numericColumns(parsed, ['firm','year'])), 'grunfeld.csv','grunfeld');
+      const next=importTable(parsed,mapping);saveActive();scannerUI.hide();
+      sessions.set(example,{name:filename,table:parsed,position:{row:0,column:0},mapping});installPanel(next,filename,example);
     }
   } catch (error) {
-    $('example').value = datasetId;
     message(errorText(error));
-  } finally {
-    $('example').disabled = false;
-    if (initiatedBySwitcher && (document.activeElement === document.body || document.activeElement === $('reader'))) $('example').focus({preventScroll:true});
   }
 }
-$('example').addEventListener('change', loadDemo);
+$('example').addEventListener('change',()=>activateSession($('example').value));
+document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',()=>withOpening(()=>loadDemo(button.dataset.demo))));
 $('aggregation').addEventListener('change', () => {
   finishRotation();
   stopLayerMotion();
@@ -579,17 +688,18 @@ $('export-button').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 window.addEventListener('message', event => {
-  if (event.data?.type === 'parquet' && typeof event.data.path === 'string') scannerUI.inspect(event.data.path);
-  if (event.data?.type === 'csv' && typeof event.data.text === 'string') prepareImport(event.data.text, event.data.name);
+  if(event.data?.type==='fileResult'){
+    const pending=fileRequests.get(event.data.id);if(pending){fileRequests.delete(event.data.id);clearTimeout(pending.timer);if(event.data.error)pending.reject(new Error(event.data.error));else pending.resolve(event.data.result);}
+  }
+  if(event.data?.type==='fileOpened')withOpening(()=>openPayload(event.data.result));
+  if (event.data?.type === 'parquet' && typeof event.data.path === 'string') withOpening(()=>openPayload({parquet:event.data.path}));
+  if (event.data?.type === 'csv' && typeof event.data.text === 'string') withOpening(()=>openPayload(event.data));
   if (event.data?.type === 'exported') message(t('saved'));
 });
 try {
   const boot = window.__PANEL_BOOT__;
-  demoText = boot?.demo ?? await fetch(new URL('./data/grunfeld.csv', import.meta.url)).then(response => {
-    if (!response.ok) throw new Error('Could not load example data.');
-    return response.text();
-  });
-  loadDemo();
-  if (boot?.csv) prepareImport(boot.csv, boot.name);
-  if (boot?.parquet || scannerUI.initial) scannerUI.inspect(boot?.parquet || scannerUI.initial);
+  showWorkspace('empty');
+  if(boot?.demoSelected)await loadDemo('grunfeld');
+  else if(boot?.initial)await withOpening(()=>openPayload(boot.initial));
+  else if(scannerUI.initial)await withOpening(async()=>openPayload(await hostOpen({path:scannerUI.initial})));
 } catch (error) { message(errorText(error)); console.error(error); }

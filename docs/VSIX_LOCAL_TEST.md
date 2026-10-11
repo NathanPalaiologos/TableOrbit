@@ -1,4 +1,41 @@
-# Local VSIX test, 2026-10-10
+# Local VSIX tests, 2026-10-10
+
+## File-reader update
+
+The updated 0.2.0 preview was packaged, installed with `code --install-extension ./tableorbit-0.2.0.vsix --force`, and loaded with **Developer: Reload Window** in the existing trusted `vsix-smoke` workspace. No Marketplace publication took place. The version number is unchanged, so use the checksum to distinguish this package from the earlier build below.
+
+- VS Code 1.141.0 on Windows x64, Node 24.15.0, `@vscode/vsce` 4.0.0.
+- Artifact: `tableorbit-0.2.0.vsix`, 1,104,769 bytes (1.05 MiB), 64 archive entries.
+- SHA-256: `b673cac9fbb71fc15b1cb570a1dbee6d1f76b8cf23e1a6e7601cdffb46fea064`.
+- The installed extension entry point, file router, Python reader, record renderer and application module matched the source and VSIX byte for byte.
+- Archive inspection found no test fixtures, private Parquet files, logs, environment files or node_modules. Curated examples remain available through the Quick guide.
+
+The following checks used small synthetic files in the installed desktop extension. They did not use the browser preview or a mocked VS Code API.
+
+| Flow | Observed result |
+|---|---|
+| Explorer right-click CSV, Explore Data | Four source records opened immediately, including the text column and numeric zero. No index dialog or demo appeared. |
+| Choose index on CSV | Suggested `firm` and `year` with `revenue` selected. Apply index produced two entities and two periods. The 2021 layer showed A = 5 and B = 8. |
+| Open file inside that viewer | The native picker added an XLSX workbook to Open tables. |
+| Excel worksheet switch | Events showed repeated `001` IDs, Chinese text and Boolean values. Selecting Panel showed the two expected firm/year/revenue records, with values 0 and 5. |
+| Open tables, return to CSV | The panel index and 2021 layer remained selected. Values remained 5 and 8. |
+| Explorer right-click XLSX | The Events worksheet opened directly, with a worksheet selector. |
+| Explorer right-click Feather | Both rows opened, preserving repeated `001` keys and values 0 and 2. |
+| Explorer right-click Stata DTA | Both rows opened, preserving repeated `001` keys and values 0.0 and 2.0. |
+| Explorer right-click JSON | Two rows retained Boolean values, numeric zero, a blank null cell, an object and an array. Nested cells did not become extra rows. |
+| Explorer right-click UTF-16 CSV | The BOM and semicolon delimiter were detected. Chinese text, Boolean text and leading-zero keys were retained. |
+| Explorer double-click Parquet | The workspace's existing TableOrbit association opened the source table. All three rows, zero and missing value matched the fixture below. No index was required. |
+| Malformed JSON through Open file | An error appeared while the current Parquet rows remained visible. Opening a valid CSV afterward succeeded and cleared the error. |
+
+Twelve focused Node tests and four Python format tests passed before packaging. The installed CLI regression also passed worker reuse, file/folder reading, panel slices, full-source summary, time filters, SVG/PDF/PNG rendering, invalid-query recovery, cancellation and shutdown. Documentation checks passed for 22 Markdown files and 87 local links.
+
+This verifies the listed formats on this Windows installation with its existing Python dependencies. TSV, JSONL and extension aliases were not separately clicked through in this native run. Missing-dependency installation, remote hosts, other operating systems and large-file benchmarks were not repeated. Text and binary import limits still apply; see [OPEN_FILES.md](OPEN_FILES.md).
+
+Explorer commands open separate VS Code tabs, currently all titled TableOrbit. Open tables switches files within one viewer. These are separate scopes; identical editor titles remain a usability limitation. Sessions do not survive a window reload. Parquet double-click used the existing workspace association and does not prove precedence over competing extensions in other workspaces.
+
+This record was updated after testing the checksum above. The packaged documentation predates this test record; the runtime files were not changed during testing.
+
+## Earlier package
 
 TableOrbit 0.2.0 was packaged with the official `@vscode/vsce` 4.0.0 tool and installed into the user's normal desktop VS Code profile. No Marketplace upload, publisher registration or GitHub release was performed.
 

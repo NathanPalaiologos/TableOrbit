@@ -25,14 +25,16 @@ Choose a new output filename if that recovery file already exists. Restoring the
 
 ## Documentation and test evidence
 
-- `README.before.md` preserves the previous README, including its decision history. It is historical, not installation guidance.
+- `README.before.md` preserves the previous README locally, including its decision history. It is ignored and no longer tracked. It is historical, not installation guidance.
 - Technical guides and validation records moved from the root into `docs/`. Their filenames remain unchanged.
-- `tests/fixtures/stress-results.json` moved to `docs/stress-results-2026-10-08.json`, with identical bytes. It is evidence from a dated run.
+- `tests/fixtures/stress-results.json` moved to `docs/stress-results-2026-10-08.json`, with identical bytes. This dated output is now ignored and no longer tracked or packaged. The measurements remain in `docs/STRESS_TEST.md`.
 - New stress results go to ignored `tests/output/stress-results.json`. `node tests/stress.mjs` regenerates measurements from retained inputs. Timings can differ.
 - `tests/fixtures/real-data-reference.json` remains tracked because the stress test reads it as an independent reference.
 - All example data, raw test fixtures and active runtime modules remain in place.
 
-The README and release guide were rewritten for installation and use. The complete pre-edit documents remain recoverable from the base commit. No commit, push or Marketplace publication is part of this cleanup.
+The README and release guide were rewritten for installation and use. The complete pre-edit documents remain recoverable from the base commit. The original cleanup did not publish to the Marketplace.
+
+The later file-reader cleanup removed only the README snapshot and dated benchmark JSON from the Git index. Their local bytes were preserved. Recover either tracked copy from commit `512faba` using its path above. No source data, active tests or canonical documentation were removed. Untracking does not remove a file from earlier Git history.
 
 ## Validation
 
